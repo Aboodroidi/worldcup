@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Al Hinai World Cup Tournament 2026</title>
+
+<!-- ===================================================================
+     CONFIG  —  EDIT THESE TWO LINES, NOTHING ELSE
+     1. Create a free project at https://supabase.com
+     2. Project Settings -> API -> copy "Project URL" and "anon public" key
+     3. Paste them below between the quotes
+     4. Set an ADMIN_PASSWORD of your choice (only you use it to enter results)
+     =================================================================== -->
+<script>
+  const SUPABASE_URL  = "https://kitexurggjanjsfmlmvg.supabase.co";
+  const SUPABASE_ANON = "sb_publishable_vXLOPb4eCi2MIYzQGjwNXg_Yd37gUnl";
+  const ADMIN_PASSWORD = "Abdullah2406";
+
+  // Lock picks this many minutes before kickoff
+  const LOCK_MINUTES_BEFORE = 15;
+
+  // ===== SCORING =====
+  // Group stage: correct winner = 1 pt
+  // Knockout base: winner AND exact score both correct = 3 pts
+  // Multipliers applied to the knockout base:
+  const STAGE = {
+    group:   { type: "winner", base: 1,  mult: 1, label: "Group Stage" },
+    r32:     { type: "score",  base: 3,  mult: 1, label: "Round of 32" },
+    r16:     { type: "score",  base: 3,  mult: 1, label: "Round of 16" },
+    quarter: { type: "score",  base: 3,  mult: 2, label: "Quarter-final" },
+    semi:    { type: "score",  base: 3,  mult: 3, label: "Semi-final" },
+    final:   { type: "score",  base: 3,  mult: 4, label: "Final" }
+  };
+
+  // ===== MATCHES =====
+  // Edit this list each tournament. kickoff is ISO time WITH timezone offset.
+  // stage must be one of: group, r32, r16, quarter, semi, final
+  // id must be unique and stable (don't reuse across different matches).
+  const MATCHES = [
+    { id: "m1", stage: "group", group: "A", home: "Mexico",  away: "South Africa",
+      homeFlag: "🇲🇽", awayFlag: "🇿🇦", kickoff: "2026-06-11T20:00:00-04:00" },
+    { id: "m2", stage: "group", group: "A", home: "South Korea", away: "Czechia",
+      homeFlag: "🇰🇷", awayFlag: "🇨🇿", kickoff: "2026-06-12T03:00:00-04:00" },
+    { id: "m3", stage: "group", group: "B", home: "Canada",  away: "Bosnia and Herzegovina",
+      homeFlag: "🇨🇦", awayFlag: "🇧🇦", kickoff: "2026-06-12T20:00:00-04:00" }
+  ];
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Archivo+Narrow:wght@600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --pitch:#0a1f14;        /* deep stadium-night green-black */
+    --pitch-2:#0e2a1b;
+    --line:#1c3b29;         /* pitch line green */
+    --green:#1fd65f;        /* vibrant pitch green */
+    --magenta:#ff2d78;      /* 2026 hot accent */
+    --gold:#ffc23d;         /* trophy gold */
+    --ink:#eafff2;
+    --muted:#7fa690;
+    --card:#0d2418;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:'Archivo',system-ui,sans-serif;
+    background:
+      radial-gradient(120% 80% at 50% -10%, #10351f 0%, transparent 60%),
+      var(--pitch);
+    color:var(--ink);
+    min-height:100vh;
+    line-height:1.4;
+    padding-bottom:80px;
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:0 16px}
+
+  /* ---------- HEADER ---------- */
+  header{
+    text-align:center;
+    padding:42px 16px 26px;
+    position:relative;
+  }
+  .eyebrow{
+    font-family:'DM Mono',monospace;
+    font-size:11px;letter-spacing:.32em;text-transform:uppercase;
+    color:var(--green);
+    margin-bottom:14px;
+  }
+  h1{
+    font-family:'Archivo',sans-serif;
+    font-weight:900;
+    font-size:clamp(30px,8vw,54px);
+    line-height:.94;
+    letter-spacing:-.02em;
+    text-transform:uppercase;
+  }
+  h1 .yr{
+    display:block;
+    background:linear-gradient(90deg,var(--green),var(--gold) 60%,var(--magenta));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .sub{color:var(--muted);margin-top:14px;font-size:14px;font-family:'DM Mono',monospace}
+
+  /* ---------- IDENTITY BAR ---------- */
+  .idbar{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px;
+    margin:8px 0 26px;
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  }
+  .idbar label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);width:100%}
+  .idbar input{
+    flex:1;min-width:160px;
+    background:var(--pitch);border:1px solid var(--line);color:var(--ink);
+    padding:12px 14px;border-radius:10px;font-family:'Archivo',sans-serif;font-size:16px;font-weight:600;
+  }
+  .idbar input:focus{outline:2px solid var(--green);border-color:transparent}
+
+  .tabs{display:flex;gap:8px;margin-bottom:20px}
+  .tab{
+    flex:1;text-align:center;padding:12px;border-radius:10px;cursor:pointer;
+    font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:15px;letter-spacing:.04em;text-transform:uppercase;
+    background:var(--card);border:1px solid var(--line);color:var(--muted);
+  }
+  .tab.active{background:var(--green);color:#06140c;border-color:transparent}
+
+  /* ---------- MATCH CARD ---------- */
+  .stage-label{
+    font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--gold);margin:24px 4px 10px;display:flex;justify-content:space-between;align-items:baseline;
+  }
+  .stage-label .pts{color:var(--muted)}
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px;margin-bottom:14px;
+    position:relative;overflow:hidden;
+  }
+  .card .grp{
+    position:absolute;top:0;right:0;
+    font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.16em;
+    color:var(--muted);background:var(--pitch);
+    padding:5px 10px;border-bottom-left-radius:10px;border:1px solid var(--line);border-top:0;border-right:0;
+  }
+  .teams{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-bottom:16px}
+  .team{
+    cursor:pointer;text-align:center;padding:14px 8px;border-radius:11px;
+    border:2px solid var(--line);background:var(--pitch);transition:.12s;
+  }
+  .team:hover{border-color:var(--muted)}
+  .team.pick{border-color:var(--green);background:rgba(31,214,95,.12)}
+  .team .flag{font-size:30px;line-height:1;display:block;margin-bottom:7px}
+  .team .nm{font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:15px;letter-spacing:.01em}
+  .vs{font-family:'DM Mono',monospace;color:var(--muted);font-size:12px}
+
+  .score-row{display:none;gap:10px;align-items:center;justify-content:center;margin-bottom:14px}
+  .score-row.on{display:flex}
+  .score-row input{
+    width:58px;text-align:center;font-family:'DM Mono',monospace;font-size:22px;font-weight:500;
+    background:var(--pitch);border:1px solid var(--line);color:var(--ink);padding:10px;border-radius:10px;
+  }
+  .score-row input:focus{outline:2px solid var(--green);border-color:transparent}
+  .score-row .x{color:var(--muted);font-family:'DM Mono',monospace}
+
+  .countdown{
+    font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.08em;
+    display:flex;align-items:center;gap:8px;color:var(--muted);
+  }
+  .countdown .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(31,214,95,.6);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(31,214,95,.5)}70%{box-shadow:0 0 0 7px rgba(31,214,95,0)}100%{box-shadow:0 0 0 0 rgba(31,214,95,0)}}
+  .countdown.locked{color:var(--magenta)}
+  .countdown.locked .dot{background:var(--magenta);animation:none}
+
+  .card.locked .team,.card.locked .score-row input{pointer-events:none;opacity:.85}
+  .card.locked .team:not(.pick){opacity:.4}
+
+  .result-tag{
+    font-family:'DM Mono',monospace;font-size:12px;color:var(--gold);margin-top:6px
+  }
+
+  /* reveal block (everyone's picks after lock) */
+  .reveal{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;display:none}
+  .reveal.on{display:block}
+  .reveal h4{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .pred{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid rgba(28,59,41,.5)}
+  .pred .who{font-weight:700;font-family:'Archivo Narrow',sans-serif}
+  .pred .what{font-family:'DM Mono',monospace;color:var(--muted)}
+  .pred.hit .what{color:var(--green)}
+
+  /* ---------- BUTTONS ---------- */
+  .save{
+    position:fixed;left:0;right:0;bottom:0;
+    background:linear-gradient(0deg,var(--pitch) 60%,transparent);
+    padding:14px 16px 18px;z-index:20;
+  }
+  .save .wrap{padding:0 16px}
+  .save button{
+    width:100%;padding:16px;border:0;border-radius:12px;cursor:pointer;
+    font-family:'Archivo',sans-serif;font-weight:900;font-size:16px;letter-spacing:.04em;text-transform:uppercase;
+    background:var(--green);color:#06140c;
+  }
+  .save button:disabled{opacity:.4}
+  .toast{
+    position:fixed;left:50%;transform:translateX(-50%);bottom:90px;
+    background:var(--gold);color:#1a1200;font-weight:700;padding:12px 20px;border-radius:30px;
+    font-size:14px;z-index:40;opacity:0;transition:.25s;pointer-events:none;font-family:'Archivo Narrow',sans-serif
+  }
+  .toast.on{opacity:1}
+
+  /* ---------- LEADERBOARD ---------- */
+  #boardView{display:none}
+  .lb{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .lb-row{display:grid;grid-template-columns:42px 1fr auto;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .lb-row:last-child{border-bottom:0}
+  .lb-row .rk{font-family:'Archivo',sans-serif;font-weight:900;font-size:18px;color:var(--muted)}
+  .lb-row.top1 .rk{color:var(--gold)}.lb-row.top2 .rk{color:#cfd8dc}.lb-row.top3 .rk{color:#d8945a}
+  .lb-row .nm{font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:17px}
+  .lb-row .pt{font-family:'DM Mono',monospace;font-weight:500;font-size:18px;color:var(--green)}
+  .empty{padding:40px 20px;text-align:center;color:var(--muted);font-family:'DM Mono',monospace;font-size:13px}
+
+  /* ---------- ADMIN ---------- */
+  #adminView{display:none}
+  .admin-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+  .admin-card .mt{font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:15px;margin-bottom:10px}
+  .admin-card .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .admin-card input[type=number]{width:54px;text-align:center;background:var(--pitch);border:1px solid var(--line);color:var(--ink);padding:8px;border-radius:8px;font-family:'DM Mono',monospace;font-size:16px}
+  .admin-card select{background:var(--pitch);border:1px solid var(--line);color:var(--ink);padding:8px;border-radius:8px;font-family:'Archivo Narrow',sans-serif;font-weight:600}
+  .admin-card button{background:var(--magenta);color:#fff;border:0;padding:9px 16px;border-radius:8px;font-weight:700;cursor:pointer;font-family:'Archivo Narrow',sans-serif}
+  .gate{max-width:340px;margin:40px auto;text-align:center}
+  .gate input{width:100%;background:var(--pitch);border:1px solid var(--line);color:var(--ink);padding:14px;border-radius:10px;font-size:16px;margin:14px 0;text-align:center;font-family:'DM Mono',monospace}
+  .gate button{background:var(--green);color:#06140c;border:0;padding:14px 24px;border-radius:10px;font-weight:900;cursor:pointer;width:100%;text-transform:uppercase}
+  .adminlink{text-align:center;margin:30px 0 10px}
+  .adminlink a{color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:2px}
+
+  .warn{background:rgba(255,45,120,.1);border:1px solid var(--magenta);color:#ffd0e0;padding:14px;border-radius:10px;font-size:13px;margin:16px 0;font-family:'DM Mono',monospace;line-height:1.5}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Family Prediction Pool</div>
+  <h1>Al Hinai<span class="yr">World Cup 2026</span></h1>
+  <div class="sub" id="liveclock"></div>
+</header>
+
+<div class="wrap">
+
+  <div id="cfgwarn" class="warn" style="display:none">
+    Database not connected yet. Open this file and paste your Supabase URL + key
+    in the CONFIG block at the top. Until then picks won't save.
+  </div>
+
+  <div class="idbar">
+    <label>Your name</label>
+    <input id="username" placeholder="e.g. Abdullah" autocomplete="name" />
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-view="play">Predict</div>
+    <div class="tab" data-view="board">Leaderboard</div>
+  </div>
+
+  <!-- PLAY VIEW -->
+  <div id="playView">
+    <div id="matches"></div>
+  </div>
+
+  <!-- BOARD VIEW -->
+  <div id="boardView">
+    <div class="lb" id="lb"><div class="empty">No points yet. Standings appear once results are in.</div></div>
+  </div>
+
+  <div class="adminlink"><a href="#admin" id="adminEntry">Admin · enter results</a></div>
+
+  <!-- ADMIN VIEW -->
+  <div id="adminView">
+    <div class="gate" id="gate">
+      <div class="eyebrow" style="color:var(--magenta)">Admin only</div>
+      <input id="adminpw" type="password" placeholder="Admin password" />
+      <button id="gateBtn">Unlock</button>
+    </div>
+    <div id="adminPanel" style="display:none">
+      <div id="adminMatches"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="save" id="saveBar">
+  <div class="wrap"><button id="saveBtn">Save my predictions</button></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ---------------- state ---------------- */
+let sb = null;
+const configured = SUPABASE_URL.startsWith("http") && SUPABASE_ANON.length > 20;
+if (configured) sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+else document.getElementById("cfgwarn").style.display = "block";
+
+const picks = {};          // matchId -> {winner, hs, as}
+let results = {};          // matchId -> {hs, as}  (from db)
+let allPreds = [];         // every player's predictions (from db)
+
+const $ = s => document.querySelector(s);
+const kickoffMs = m => new Date(m.kickoff).getTime();
+
+// SHARED LOCK: the whole set locks 15 min before the EARLIEST kickoff in the batch.
+// After that single moment, all picks freeze and everyone's predictions become visible.
+const earliestKickoff = () => Math.min(...MATCHES.map(kickoffMs));
+const setLockMs = () => earliestKickoff() - LOCK_MINUTES_BEFORE*60000;
+const lockMs = m => setLockMs();          // same lock time for every match
+const isLocked = m => Date.now() >= setLockMs();
+const setIsLocked = () => Date.now() >= setLockMs();
+
+/* ---------------- render matches ---------------- */
+function stageOrder(s){return ["group","r32","r16","quarter","semi","final"].indexOf(s)}
+function fmtLeft(ms){
+  if(ms<=0) return "Locked";
+  const s=Math.floor(ms/1000), d=Math.floor(s/86400), h=Math.floor(s%86400/3600),
+        m=Math.floor(s%3600/60), ss=s%60;
+  if(d>0) return `Locks in ${d}d ${h}h`;
+  if(h>0) return `Locks in ${h}h ${m}m`;
+  return `Locks in ${m}m ${ss}s`;
+}
+
+function renderMatches(){
+  const wrap = $("#matches"); wrap.innerHTML="";
+  const sorted=[...MATCHES].sort((a,b)=>stageOrder(a.stage)-stageOrder(b.stage)||kickoffMs(a)-kickoffMs(b));
+  let lastStage=null;
+  sorted.forEach(m=>{
+    const cfg=STAGE[m.stage];
+    if(m.stage!==lastStage){
+      lastStage=m.stage;
+      const pts = cfg.type==="winner" ? `${cfg.base} pt · winner`
+                 : `${cfg.base*cfg.mult} pts · winner + exact score`;
+      const sl=document.createElement("div");sl.className="stage-label";
+      sl.innerHTML=`<span>${cfg.label}</span><span class="pts">${pts}</span>`;
+      wrap.appendChild(sl);
+    }
+    const locked=isLocked(m);
+    const p=picks[m.id]||{};
+    const card=document.createElement("div");
+    card.className="card"+(locked?" locked":"");
+    card.dataset.id=m.id;
+    card.innerHTML=`
+      ${m.group?`<div class="grp">Group ${m.group}</div>`:""}
+      <div class="teams">
+        <div class="team ${p.winner===m.home?"pick":""}" data-pick="home">
+          <span class="flag">${m.homeFlag||"⚽"}</span><span class="nm">${m.home}</span>
+        </div>
+        <div class="vs">v</div>
+        <div class="team ${p.winner===m.away?"pick":""}" data-pick="away">
+          <span class="flag">${m.awayFlag||"⚽"}</span><span class="nm">${m.away}</span>
+        </div>
+      </div>
+      ${cfg.type==="score"?`
+      <div class="score-row on">
+        <input type="number" min="0" inputmode="numeric" data-s="h" value="${p.hs??""}" placeholder="0" aria-label="${m.home} score"/>
+        <span class="x">:</span>
+        <input type="number" min="0" inputmode="numeric" data-s="a" value="${p.as??""}" placeholder="0" aria-label="${m.away} score"/>
+      </div>`:""}
+      <div class="countdown ${locked?"locked":""}" data-cd="${m.id}">
+        <span class="dot"></span><span class="t">${locked?"Locked":fmtLeft(lockMs(m)-Date.now())}</span>
+      </div>
+      ${results[m.id]?`<div class="result-tag">Result: ${m.home} ${results[m.id].hs}–${results[m.id].as} ${m.away}</div>`:""}
+      <div class="reveal ${locked?"on":""}"><h4>Everyone's picks</h4><div class="predlist"></div></div>
+    `;
+    wrap.appendChild(card);
+
+    // pick handlers
+    card.querySelectorAll(".team").forEach(t=>{
+      t.addEventListener("click",()=>{
+        if(locked) return;
+        const w = t.dataset.pick==="home"?m.home:m.away;
+        picks[m.id]=picks[m.id]||{};
+        picks[m.id].winner=w;
+        card.querySelectorAll(".team").forEach(x=>x.classList.remove("pick"));
+        t.classList.add("pick");
+      });
+    });
+    card.querySelectorAll("input[data-s]").forEach(inp=>{
+      inp.addEventListener("input",()=>{
+        picks[m.id]=picks[m.id]||{};
+        if(inp.dataset.s==="h") picks[m.id].hs=inp.value;
+        else picks[m.id].as=inp.value;
+      });
+    });
+
+    if(locked) fillReveal(card,m);
+  });
+}
+
+function fillReveal(card,m){
+  const box=card.querySelector(".predlist"); if(!box) return;
+  const rows=allPreds.filter(p=>p.match_id===m.id);
+  if(!rows.length){box.innerHTML=`<div class="pred"><span class="what">No predictions were submitted.</span></div>`;return}
+  const res=results[m.id];
+  box.innerHTML=rows.map(r=>{
+    const what = r.home_score!=null ? `${r.winner} · ${r.home_score}–${r.away_score}` : r.winner;
+    let hit=false;
+    if(res){
+      const cfg=STAGE[m.stage];
+      const realWinner = res.hs>res.as?m.home:res.as>res.hs?m.away:"Draw";
+      if(cfg.type==="winner") hit = r.winner===realWinner;
+      else hit = r.winner===realWinner && +r.home_score===res.hs && +r.away_score===res.as;
+    }
+    return `<div class="pred ${hit?"hit":""}"><span class="who">${r.username}</span><span class="what">${what}</span></div>`;
+  }).join("");
+}
+
+/* ---------------- countdown tick ---------------- */
+setInterval(()=>{
+  document.querySelectorAll("[data-cd]").forEach(el=>{
+    const m=MATCHES.find(x=>x.id===el.dataset.cd); if(!m) return;
+    const left=lockMs(m)-Date.now();
+    if(left<=0 && !el.classList.contains("locked")){ renderMatches(); return; }
+    if(left>0) el.querySelector(".t").textContent=fmtLeft(left);
+  });
+},1000);
+setInterval(()=>{
+  const left = setLockMs() - Date.now();
+  const el = $("#liveclock");
+  if(left>0){
+    el.innerHTML = `Predictions lock in <b style="color:var(--green)">${fmtLeft(left).replace("Locks in ","")}</b> · then everyone's picks are revealed`;
+  } else {
+    el.innerHTML = `<b style="color:var(--magenta)">Predictions locked</b> · all picks are now visible`;
+  }
+},1000);
+
+/* ---------------- save predictions ---------------- */
+async function savePicks(){
+  const name=$("#username").value.trim();
+  if(!name){ toast("Enter your name first"); $("#username").focus(); return; }
+  if(!configured){ toast("Connect the database first"); return; }
+
+  const rows=[];
+  for(const m of MATCHES){
+    if(isLocked(m)) continue;            // can't submit locked matches
+    const p=picks[m.id]; if(!p||!p.winner) continue;
+    const cfg=STAGE[m.stage];
+    const row={ username:name, match_id:m.id, winner:p.winner,
+                home_score:null, away_score:null };
+    if(cfg.type==="score"){
+      if(p.hs===""||p.as===""||p.hs==null||p.as==null){ toast(`Add the score for ${m.home} v ${m.away}`); return; }
+      row.home_score=+p.hs; row.away_score=+p.as;
+    }
+    rows.push(row);
+  }
+  if(!rows.length){ toast("Make at least one pick on an open match"); return; }
+
+  $("#saveBtn").disabled=true;
+  // upsert on (username, match_id)
+  const { error } = await sb.from("predictions")
+        .upsert(rows,{onConflict:"username,match_id"});
+  $("#saveBtn").disabled=false;
+  if(error){ toast("Save failed — check console"); console.error(error); return; }
+  toast("Predictions saved ✓");
+  await loadData(); renderMatches();
+}
+
+/* ---------------- load db ---------------- */
+async function loadData(){
+  if(!configured) return;
+  const [{data:preds},{data:res}] = await Promise.all([
+    sb.from("predictions").select("*"),
+    sb.from("results").select("*")
+  ]);
+  allPreds = preds||[];
+  results = {};
+  (res||[]).forEach(r=>results[r.match_id]={hs:r.home_score,as:r.away_score});
+}
+
+/* ---------------- leaderboard ---------------- */
+function computeBoard(){
+  const totals={};
+  allPreds.forEach(p=>{
+    const m=MATCHES.find(x=>x.id===p.match_id); if(!m) return;
+    const res=results[p.match_id]; if(!res) return;
+    const cfg=STAGE[m.stage];
+    const realWinner = res.hs>res.as?m.home:res.as>res.hs?m.away:"Draw";
+    let pts=0;
+    if(cfg.type==="winner"){ if(p.winner===realWinner) pts=cfg.base*cfg.mult; }
+    else { if(p.winner===realWinner && +p.home_score===res.hs && +p.away_score===res.as) pts=cfg.base*cfg.mult; }
+    totals[p.username]=(totals[p.username]||0)+pts;
+  });
+  return Object.entries(totals).sort((a,b)=>b[1]-a[1]);
+}
+function renderBoard(){
+  const board=computeBoard(), lb=$("#lb");
+  if(!board.length){ lb.innerHTML=`<div class="empty">No points yet. Standings appear once results are in.</div>`; return; }
+  lb.innerHTML=board.map(([nm,pt],i)=>`
+    <div class="lb-row ${i<3?"top"+(i+1):""}">
+      <span class="rk">${i+1}</span><span class="nm">${nm}</span><span class="pt">${pt}</span>
+    </div>`).join("");
+}
+
+/* ---------------- admin ---------------- */
+function renderAdmin(){
+  const wrap=$("#adminMatches");
+  const sorted=[...MATCHES].sort((a,b)=>stageOrder(a.stage)-stageOrder(b.stage)||kickoffMs(a)-kickoffMs(b));
+  wrap.innerHTML=sorted.map(m=>{
+    const r=results[m.id]||{};
+    return `<div class="admin-card" data-id="${m.id}">
+      <div class="mt">${m.homeFlag||""} ${m.home} v ${m.away} ${m.awayFlag||""} <span style="color:var(--muted);font-size:12px">(${STAGE[m.stage].label})</span></div>
+      <div class="row">
+        <input type="number" min="0" data-r="h" value="${r.hs??""}" placeholder="0"/>
+        <span style="color:var(--muted)">:</span>
+        <input type="number" min="0" data-r="a" value="${r.as??""}" placeholder="0"/>
+        <button data-save>Save result</button>
+        ${r.hs!=null?`<span style="color:var(--gold);font-family:'DM Mono';font-size:12px">saved</span>`:""}
+      </div>
+    </div>`;
+  }).join("");
+  wrap.querySelectorAll(".admin-card").forEach(card=>{
+    card.querySelector("[data-save]").addEventListener("click",async()=>{
+      const id=card.dataset.id;
+      const hs=card.querySelector("[data-r=h]").value, as=card.querySelector("[data-r=a]").value;
+      if(hs===""||as===""){ toast("Enter both scores"); return; }
+      const { error } = await sb.from("results")
+        .upsert([{match_id:id,home_score:+hs,away_score:+as}],{onConflict:"match_id"});
+      if(error){ toast("Failed"); console.error(error); return; }
+      toast("Result saved ✓"); await loadData(); renderAdmin(); renderBoard();
+    });
+  });
+}
+
+/* ---------------- view switching ---------------- */
+function show(view){
+  $("#playView").style.display = view==="play"?"block":"none";
+  $("#boardView").style.display = view==="board"?"block":"none";
+  $("#adminView").style.display = view==="admin"?"block":"none";
+  $("#saveBar").style.display = view==="play"?"block":"none";
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===view));
+  if(view==="board") renderBoard();
+}
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>show(t.dataset.view)));
+$("#adminEntry").addEventListener("click",e=>{e.preventDefault();show("admin");});
+$("#gateBtn").addEventListener("click",()=>{
+  if($("#adminpw").value===ADMIN_PASSWORD){ $("#gate").style.display="none"; $("#adminPanel").style.display="block"; renderAdmin(); }
+  else toast("Wrong password");
+});
+$("#saveBtn").addEventListener("click",savePicks);
+
+/* ---------------- toast ---------------- */
+let tT;
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove("on"),2200); }
+
+/* ---------------- boot ---------------- */
+(async()=>{
+  // remember name locally for convenience
+  const saved=localStorage.getItem("wc_name"); if(saved) $("#username").value=saved;
+  $("#username").addEventListener("input",e=>localStorage.setItem("wc_name",e.target.value.trim()));
+  await loadData();
+  renderMatches();
+})();
+</script>
+</body>
+</html>
