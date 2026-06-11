@@ -240,6 +240,15 @@
   .adminlink a{color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:2px}
 
   .warn{background:rgba(255,45,120,.1);border:1px solid var(--magenta);color:#ffd0e0;padding:14px;border-radius:10px;font-size:13px;margin:16px 0;font-family:'DM Mono',monospace;line-height:1.5}
+
+  /* ---------- WHO'S PREDICTED ---------- */
+  .players{margin:34px 0 10px}
+  .players h3{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between;align-items:baseline}
+  .players h3 .cnt{color:var(--green)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--card);border:1px solid var(--line);border-radius:30px;padding:8px 14px;font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:14px;color:var(--ink)}
+  .chip .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:7px;vertical-align:middle}
+  .players .none{color:var(--muted);font-family:'DM Mono',monospace;font-size:13px}
 </style>
 </head>
 <body>
@@ -275,6 +284,11 @@
   <!-- BOARD VIEW -->
   <div id="boardView">
     <div class="lb" id="lb"><div class="empty">No points yet. Standings appear once results are in.</div></div>
+  </div>
+
+  <div class="players" id="players">
+    <h3><span>Locked in</span><span class="cnt" id="playerCount"></span></h3>
+    <div class="chips" id="chips"><span class="none">No one has predicted yet.</span></div>
   </div>
 
   <div class="adminlink"><a href="#admin" id="adminEntry">Admin · enter results</a></div>
@@ -465,7 +479,7 @@ async function savePicks(){
   $("#saveBtn").disabled=false;
   if(error){ toast("Save failed — check console"); console.error(error); return; }
   toast("Predictions saved ✓");
-  await loadData(); renderMatches();
+  await loadData(); renderMatches(); renderParticipants();
 }
 
 /* ---------------- load db ---------------- */
@@ -478,6 +492,16 @@ async function loadData(){
   allPreds = preds||[];
   results = {};
   (res||[]).forEach(r=>results[r.match_id]={hs:r.home_score,as:r.away_score});
+}
+
+/* ---------------- who has predicted (names only) ---------------- */
+function renderParticipants(){
+  const names=[...new Set(allPreds.map(p=>p.username))];
+  const cnt=$("#playerCount"), box=$("#chips");
+  if(!cnt||!box) return;
+  cnt.textContent=names.length?`${names.length} ${names.length===1?"person":"people"}`:"";
+  if(!names.length){ box.innerHTML=`<span class="none">No one has predicted yet.</span>`; return; }
+  box.innerHTML=names.sort((a,b)=>a.localeCompare(b)).map(n=>`<span class="chip"><span class="dot"></span>${n}</span>`).join("");
 }
 
 /* ---------------- leaderboard ---------------- */
@@ -562,6 +586,7 @@ function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on
   $("#username").addEventListener("input",e=>localStorage.setItem("wc_name",e.target.value.trim()));
   await loadData();
   renderMatches();
+  renderParticipants();
 })();
 </script>
 </body>
