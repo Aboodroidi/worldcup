@@ -39,11 +39,11 @@
   // id must be unique and stable (don't reuse across different matches).
   const MATCHES = [
     { id: "m1", stage: "group", group: "A", home: "Mexico",  away: "South Africa",
-      homeFlag: "🇲🇽", awayFlag: "🇿🇦", kickoff: "2026-06-11T20:00:00-04:00" },
+      homeFlag: "🇲🇽", awayFlag: "🇿🇦", kickoff: "2026-06-11T20:00:00+01:00" },
     { id: "m2", stage: "group", group: "A", home: "South Korea", away: "Czechia",
-      homeFlag: "🇰🇷", awayFlag: "🇨🇿", kickoff: "2026-06-12T03:00:00-04:00" },
+      homeFlag: "🇰🇷", awayFlag: "🇨🇿", kickoff: "2026-06-12T03:00:00+01:00" },
     { id: "m3", stage: "group", group: "B", home: "Canada",  away: "Bosnia and Herzegovina",
-      homeFlag: "🇨🇦", awayFlag: "🇧🇦", kickoff: "2026-06-12T20:00:00-04:00" }
+      homeFlag: "🇨🇦", awayFlag: "🇧🇦", kickoff: "2026-06-12T20:00:00+01:00" }
   ];
 </script>
 
@@ -158,6 +158,10 @@
   .team.pick{border-color:var(--green);background:rgba(31,214,95,.12)}
   .team .flag{font-size:30px;line-height:1;display:block;margin-bottom:7px}
   .team .nm{font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:15px;letter-spacing:.01em}
+
+  .team.draw{grid-column:1 / -1;margin-top:10px;padding:11px 8px}
+  .team.draw .nm{color:var(--muted)}
+  .team.draw.pick .nm{color:var(--green)}
   .vs{font-family:'DM Mono',monospace;color:var(--muted);font-size:12px}
 
   .score-row{display:none;gap:10px;align-items:center;justify-content:center;margin-bottom:14px}
@@ -377,6 +381,7 @@ function renderMatches(){
           <span class="flag">${m.awayFlag||"⚽"}</span><span class="nm">${m.away}</span>
         </div>
       </div>
+      ${cfg.type==="winner"?`<div class="team draw ${p.winner==="Draw"?"pick":""}" data-pick="draw"><span class="nm">Draw (ØªØ¹Ø§Ø¯Ù)</span></div>`:""}
       ${cfg.type==="score"?`
       <div class="score-row on">
         <input type="number" min="0" inputmode="numeric" data-s="h" value="${p.hs??""}" placeholder="0" aria-label="${m.home} score"/>
@@ -395,7 +400,7 @@ function renderMatches(){
     card.querySelectorAll(".team").forEach(t=>{
       t.addEventListener("click",()=>{
         if(locked) return;
-        const w = t.dataset.pick==="home"?m.home:m.away;
+        const w = t.dataset.pick==="home"?m.home:(t.dataset.pick==="away"?m.away:"Draw");
         picks[m.id]=picks[m.id]||{};
         picks[m.id].winner=w;
         card.querySelectorAll(".team").forEach(x=>x.classList.remove("pick"));
