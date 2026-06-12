@@ -139,6 +139,9 @@
     display:flex;gap:10px;align-items:center;flex-wrap:wrap;
   }
   .idbar label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);width:100%}
+
+  .idbar select{flex:1;min-width:160px;background:var(--pitch);border:1px solid var(--line);color:var(--ink);padding:12px 14px;border-radius:10px;font-family:'Archivo',sans-serif;font-size:16px;font-weight:600;cursor:pointer}
+  .idbar select:focus{outline:2px solid var(--green);border-color:transparent}
   .idbar input{
     flex:1;min-width:160px;
     background:var(--pitch);border:1px solid var(--line);color:var(--ink);
@@ -297,7 +300,11 @@
 
   <div class="idbar">
     <label>Your name</label>
-    <input id="username" placeholder="e.g. Abdullah" autocomplete="name" />
+    <select id="nameSelect">
+      <option value="" disabled selected>Select your name</option>
+      <option value="__new__">+ Add new name</option>
+    </select>
+    <input id="username" placeholder="Type your new name" autocomplete="name" style="display:none" />
   </div>
 
   <div class="tabs">
@@ -516,7 +523,7 @@ async function savePicks(){
   $("#saveBtn").disabled=false;
   if(error){ toast("Save failed — check console"); console.error(error); return; }
   toast("Predictions saved ✓");
-  await loadData(); renderMatches(); renderParticipants(); renderHistory();
+  await loadData(); renderMatches(); renderParticipants(); renderHistory(); populateNames();
 }
 
 /* ---------------- load db ---------------- */
@@ -529,6 +536,28 @@ async function loadData(){
   allPreds = preds||[];
   results = {};
   (res||[]).forEach(r=>results[r.match_id]={hs:r.home_score,as:r.away_score});
+}
+
+/* ---------------- name selector ---------------- */
+function populateNames(){
+  const sel=$("#nameSelect"); if(!sel) return;
+  const names=[...new Set(allPreds.map(p=>p.username))].sort((a,b)=>a.localeCompare(b));
+  const saved=localStorage.getItem("wc_name");
+  sel.innerHTML =
+    '<option value="" disabled'+(saved?'':' selected')+'>Select your name</option>' +
+    names.map(n=>`<option value="${n.replace(/"/g,"&quot;")}"${n===saved?" selected":""}>${n}</option>`).join("") +
+    '<option value="__new__">+ Add new name</option>';
+  const inp=$("#username");
+  if(saved && names.includes(saved)){ inp.style.display="none"; inp.value=saved; }
+}
+function onNameSelect(){
+  const sel=$("#nameSelect"), inp=$("#username");
+  if(sel.value==="__new__"){
+    inp.style.display=""; inp.value=""; inp.focus();
+  } else {
+    inp.style.display="none"; inp.value=sel.value;
+    localStorage.setItem("wc_name", sel.value);
+  }
 }
 
 /* ---------------- who has predicted (names only) ---------------- */
@@ -651,11 +680,11 @@ function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on
 /* ---------------- boot ---------------- */
 (async()=>{
   // remember name locally for convenience
-  const saved=localStorage.getItem("wc_name"); if(saved) $("#username").value=saved;
+  $("#nameSelect").addEventListener("change", onNameSelect);
   $("#username").addEventListener("input",e=>localStorage.setItem("wc_name",e.target.value.trim()));
   await loadData();
   renderMatches();
-  renderParticipants(); renderHistory();
+  renderParticipants(); renderHistory(); populateNames();
 })();
 </script>
 </body>
