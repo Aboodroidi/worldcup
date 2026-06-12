@@ -42,7 +42,7 @@
       homeFlag: "\ud83c\uddf2\ud83c\uddfd", awayFlag: "\ud83c\uddff\ud83c\udde6", kickoff: "2026-06-11T20:00:00+01:00" },
     { id: "m2", stage: "group", group: "A", home: "South Korea", away: "Czechia",
       homeFlag: "\ud83c\uddf0\ud83c\uddf7", awayFlag: "\ud83c\udde8\ud83c\uddff", kickoff: "2026-06-12T03:00:00+01:00" },
-    { id: "m3", stage: "group", group: "B", home: "Canada",  away: "Bosnia and Herzegovina",
+    { id: "m3", stage: "group", group: "B", locked: true, home: "Canada",  away: "Bosnia and Herzegovina",
       homeFlag: "\ud83c\udde8\ud83c\udde6", awayFlag: "\ud83c\udde7\ud83c\udde6", kickoff: "2026-06-12T20:00:00+01:00" },
     { id: "m4", stage: "group", group: "D", home: "USA", away: "Paraguay",
       homeFlag: "\ud83c\uddfa\ud83c\uddf8", awayFlag: "\ud83c\uddf5\ud83c\uddfe", kickoff: "2026-06-14T02:00:00+01:00" },
@@ -365,10 +365,10 @@ const kickoffMs = m => new Date(m.kickoff).getTime();
 
 // SHARED LOCK: the whole set locks 15 min before the EARLIEST kickoff in the batch.
 // After that single moment, all picks freeze and everyone's predictions become visible.
-const earliestKickoff = () => { const up=MATCHES.filter(m=>!results[m.id]); return Math.min(...(up.length?up:MATCHES).map(kickoffMs)); };
+const earliestKickoff = () => { const up=MATCHES.filter(m=>!results[m.id] && !m.locked); return Math.min(...(up.length?up:MATCHES).map(kickoffMs)); };
 const setLockMs = () => earliestKickoff() - LOCK_MINUTES_BEFORE*60000;
 const lockMs = m => setLockMs();          // same lock time for every match
-const isLocked = m => Date.now() >= setLockMs();
+const isLocked = m => m.locked === true || Date.now() >= setLockMs();
 const setIsLocked = () => Date.now() >= setLockMs();
 
 /* ---------------- render matches ---------------- */
