@@ -206,6 +206,8 @@
   }
   .countdown .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(31,214,95,.6);animation:pulse 2s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(31,214,95,.5)}70%{box-shadow:0 0 0 7px rgba(31,214,95,0)}100%{box-shadow:0 0 0 0 rgba(31,214,95,0)}}
+
+  .countdown .ko{margin-left:auto;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.02em}
   .countdown.locked{color:var(--magenta)}
   .countdown.locked .dot{background:var(--magenta);animation:none}
 
@@ -410,6 +412,11 @@ const setIsLocked = () => Date.now() >= setLockMs();
 
 /* ---------------- render matches ---------------- */
 function stageOrder(s){return ["group","r32","r16","quarter","semi","final"].indexOf(s)}
+function omanTime(m){
+  try{
+    return new Date(m.kickoff).toLocaleString("en-GB",{timeZone:"Asia/Muscat",weekday:"short",hour:"2-digit",minute:"2-digit",hour12:true});
+  }catch(e){ return ""; }
+}
 function fmtLeft(ms){
   if(ms<=0) return "Locked";
   const s=Math.floor(ms/1000), d=Math.floor(s/86400), h=Math.floor(s%86400/3600),
@@ -459,6 +466,7 @@ function renderMatches(){
       </div>`:""}
       <div class="countdown ${locked?"locked":""}" data-cd="${m.id}">
         <span class="dot"></span><span class="t">${locked?"Locked":fmtLeft(lockMs(m)-Date.now())}</span>
+        <span class="ko">\ud83d\udd53 ${omanTime(m)} (Oman)</span>
       </div>
       ${results[m.id]?`<div class="result-tag">Result: ${m.home} ${results[m.id].hs}–${results[m.id].as} ${m.away}</div>`:""}
       <div class="reveal ${locked?"on":""}"><h4>Everyone's picks</h4><div class="predlist"></div></div>
