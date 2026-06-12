@@ -353,7 +353,7 @@
 
   <div class="players" id="players">
     <h3><span>Locked in</span><span class="cnt" id="playerCount"></span></h3>
-    <div class="chips" id="chips"><span class="none">No one has predicted yet.</span></div>
+    <div class="chips" id="chips"><span class="none">No one has predicted this round yet.</span></div>
   </div>
 
   <div class="adminlink"><a href="#admin" id="adminEntry">Admin · enter results</a></div>
@@ -593,11 +593,12 @@ function onNameSelect(){
 
 /* ---------------- who has predicted (names only) ---------------- */
 function renderParticipants(){
-  const names=[...new Set(allPreds.map(p=>p.username))];
+  const openIds=new Set(MATCHES.filter(m=>!results[m.id] && !isLocked(m)).map(m=>m.id));
+  const names=[...new Set(allPreds.filter(p=>openIds.has(p.match_id)).map(p=>p.username))];
   const cnt=$("#playerCount"), box=$("#chips");
   if(!cnt||!box) return;
   cnt.textContent=names.length?`${names.length} ${names.length===1?"person":"people"}`:"";
-  if(!names.length){ box.innerHTML=`<span class="none">No one has predicted yet.</span>`; return; }
+  if(!names.length){ box.innerHTML=`<span class="none">No one has predicted this round yet.</span>`; return; }
   box.innerHTML=names.sort((a,b)=>a.localeCompare(b)).map(n=>`<span class="chip"><span class="dot"></span>${n}</span>`).join("");
 }
 
