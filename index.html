@@ -255,6 +255,29 @@
   .lb-row.top1 .rk{color:var(--gold)}.lb-row.top2 .rk{color:#cfd8dc}.lb-row.top3 .rk{color:#d8945a}
   .lb-row .nm{font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:17px}
   .lb-row .pt{font-family:'DM Mono',monospace;font-weight:500;font-size:18px;color:var(--green)}
+
+  /* form dots in leaderboard */
+  .form{display:inline-flex;gap:3px;margin-right:8px;vertical-align:middle}
+  .fd{width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#06140c}
+  .fd.h{background:var(--green)}
+  .fd.m{background:var(--magenta);color:#fff}
+  .lb-row{cursor:pointer}
+  .lb-row:hover{background:rgba(31,214,95,.06)}
+  /* user history modal */
+  .umodal{display:none;position:fixed;inset:0;background:rgba(2,10,6,.78);z-index:60;align-items:center;justify-content:center;padding:18px}
+  .umodal.on{display:flex}
+  .ubox{background:var(--card);border:1px solid var(--line);border-radius:16px;max-width:520px;width:100%;max-height:80vh;overflow:auto}
+  .uhead{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card)}
+  .uhead span{font-family:'Archivo',sans-serif;font-weight:900;font-size:18px}
+  .uhead .usub{font-family:'DM Mono',monospace;font-weight:400;font-size:12px;color:var(--muted);margin-right:8px}
+  .uhead button{background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer}
+  .urow{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:12px 20px;border-bottom:1px solid rgba(28,59,41,.5);font-size:13px}
+  .urow .ufd{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px}
+  .urow.h .ufd{background:var(--green);color:#06140c}
+  .urow.m .ufd{background:var(--magenta);color:#fff}
+  .urow .umatch{font-family:'Archivo Narrow',sans-serif;font-weight:700}
+  .urow .upick{font-family:'DM Mono',monospace;color:var(--muted);font-size:12px;text-align:left}
+  .urow .upick b{color:var(--green)}
   .empty{padding:40px 20px;text-align:center;color:var(--muted);font-family:'DM Mono',monospace;font-size:13px}
 
   /* ---------- ADMIN ---------- */
@@ -354,6 +377,13 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div id="userModal" class="umodal" onclick="if(event.target===this)this.classList.remove('on')">
+  <div class="ubox">
+    <div class="uhead"><span id="uTitle"></span><button id="uClose">✕</button></div>
+    <div id="uBody"></div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -480,6 +510,7 @@ function fillReveal(card,m){
 setInterval(()=>{
   document.querySelectorAll("[data-cd]").forEach(el=>{
     const m=MATCHES.find(x=>x.id===el.dataset.cd); if(!m) return;
+    if(isLocked(m)){ el.querySelector(".t").textContent="Locked"; el.classList.add("locked"); return; }
     const left=lockMs(m)-Date.now();
     if(left<=0 && !el.classList.contains("locked")){ renderMatches(); return; }
     if(left>0) el.querySelector(".t").textContent=fmtLeft(left);
@@ -601,6 +632,28 @@ function renderHistory(){
 }
 
 /* ---------------- leaderboard ---------------- */
+/* per-user graded predictions (oldest->newest), for form dots & history */
+function userResults(username){
+  const out=[];
+  MATCHES.filter(m=>results[m.id]).sort((a,b)=>kickoffMs(a)-kickoffMs(b)).forEach(m=>{
+    const p=allPreds.find(x=>x.match_id===m.id && x.username===username);
+    if(!p) return;
+    const res=results[m.id], cfg=STAGE[m.stage];
+    const realWinner=res.hs>res.as?m.home:res.as>res.hs?m.away:"Draw";
+    let hit;
+    if(cfg.type==="winner") hit=p.winner===realWinner;
+    else hit=p.winner===realWinner && +p.home_score===res.hs && +p.away_score===res.as;
+    const what=p.home_score!=null?`${p.winner} \u00b7 ${p.home_score}\u2013${p.away_score}`:p.winner;
+    out.push({m,res,realWinner,hit,what,pts:hit?cfg.base*cfg.mult:0});
+  });
+  return out;
+}
+function formDots(username){
+  const last=userResults(username).slice(-5);
+  if(!last.length) return '';
+  return '<span class="form">'+last.map(r=>`<span class="fd ${r.hit?'h':'m'}">${r.hit?'\u2713':'\u2717'}</span>`).join('')+'</span>';
+}
+
 function computeBoard(){
   const totals={};
   allPreds.forEach(p=>{
@@ -619,9 +672,14 @@ function renderBoard(){
   const board=computeBoard(), lb=$("#lb");
   if(!board.length){ lb.innerHTML=`<div class="empty">No points yet. Standings appear once results are in.</div>`; return; }
   lb.innerHTML=board.map(([nm,pt],i)=>`
-    <div class="lb-row ${i<3?"top"+(i+1):""}">
-      <span class="rk">${i+1}</span><span class="nm">${nm}</span><span class="pt">${pt}</span>
+    <div class="lb-row ${i<3?"top"+(i+1):""}" data-user="${encodeURIComponent(nm)}">
+      <span class="rk">${i+1}</span>
+      <span class="nm">${nm}${formDots(nm)}</span>
+      <span class="pt">${pt}</span>
     </div>`).join("");
+  lb.querySelectorAll(".lb-row").forEach(row=>{
+    row.addEventListener("click",()=>openUserHistory(decodeURIComponent(row.dataset.user)));
+  });
 }
 
 /* ---------------- admin ---------------- */
@@ -653,6 +711,22 @@ function renderAdmin(){
     });
   });
 }
+
+/* user history modal */
+function openUserHistory(name){
+  const rows=userResults(name).slice().reverse();
+  const total=rows.reduce((a,r)=>a+r.pts,0);
+  const hits=rows.filter(r=>r.hit).length;
+  $("#uTitle").innerHTML=`${name} <span class="usub">${hits}/${rows.length} correct \u00b7 ${total} pts</span>`;
+  $("#uBody").innerHTML = rows.length ? rows.map(r=>`
+    <div class="urow ${r.hit?'h':'m'}">
+      <span class="ufd">${r.hit?'\u2713':'\u2717'}</span>
+      <span class="umatch">${r.m.home} ${r.res.hs}\u2013${r.res.as} ${r.m.away}</span>
+      <span class="upick">${r.what}${r.pts?` <b>+${r.pts}</b>`:''}</span>
+    </div>`).join('') : `<div class="empty">No graded predictions yet.</div>`;
+  $("#userModal").classList.add("on");
+}
+$("#uClose").addEventListener("click",()=>$("#userModal").classList.remove("on"));
 
 /* ---------------- view switching ---------------- */
 function show(view){
