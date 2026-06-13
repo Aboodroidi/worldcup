@@ -186,6 +186,16 @@
   .team .flag{font-size:30px;line-height:1;display:block;margin-bottom:7px}
   .team .nm{font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:15px;letter-spacing:.01em}
 
+
+  /* locked poll overlay */
+  .team{position:relative;overflow:hidden}
+  .team.locked-opt .flag,.team.locked-opt .nm{position:relative;z-index:2}
+  .poll{position:absolute;inset:0;z-index:1;border-radius:inherit;pointer-events:none}
+  .poll .pbar{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,rgba(31,214,95,.10),rgba(31,214,95,.20));transition:width .6s cubic-bezier(.22,1,.36,1)}
+  .poll.lead .pbar{background:linear-gradient(90deg,rgba(31,214,95,.22),rgba(31,214,95,.40))}
+  .poll .ptxt{position:absolute;right:9px;bottom:6px;z-index:3;font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+  .poll.lead .ptxt{color:var(--green)}
+  .team.draw .poll .ptxt{right:auto;left:12px;bottom:50%;transform:translateY(50%)}
   .team.draw{grid-column:1 / -1;margin-top:10px;padding:11px 8px}
   .team.draw .nm{color:var(--muted)}
   .team.draw.pick .nm{color:var(--green)}
@@ -426,6 +436,22 @@ function fmtLeft(ms){
   return `Locks in ${m}m ${ss}s`;
 }
 
+function pollData(m){
+  const rows=allPreds.filter(p=>p.match_id===m.id);
+  const tot=rows.length;
+  const c={home:0,away:0,draw:0};
+  rows.forEach(p=>{ if(p.winner===m.home)c.home++; else if(p.winner===m.away)c.away++; else if(p.winner==="Draw")c.draw++; });
+  const pct=k=>tot?Math.round(c[k]/tot*100):0;
+  const top=Math.max(c.home,c.away,c.draw);
+  return {tot,c,pct,top};
+}
+function pollBar(m,key){
+  if(!isLocked(m)) return "";
+  const pd=pollData(m); if(!pd.tot) return "";
+  const n=pd.c[key], p=pd.pct(key), lead=(n===pd.top && n>0);
+  return `<span class="poll ${lead?"lead":""}"><span class="pbar" style="width:${p}%"></span><span class="ptxt">${p}% \u00b7 ${n}</span></span>`;
+}
+
 function renderMatches(){
   const wrap = $("#matches"); wrap.innerHTML="";
   const sorted=[...MATCHES].filter(m=>!results[m.id]).sort((a,b)=>stageOrder(a.stage)-stageOrder(b.stage)||kickoffMs(a)-kickoffMs(b));
@@ -449,15 +475,15 @@ function renderMatches(){
     card.innerHTML=`
       ${m.group?`<div class="grp">Group ${m.group}</div>`:""}
       <div class="teams">
-        <div class="team ${p.winner===m.home?"pick":""}" data-pick="home">
+        <div class="team ${p.winner===m.home?"pick":""} ${locked?"locked-opt":""}" data-pick="home">${pollBar(m,"home")}
           <span class="flag">${m.homeFlag||"⚽"}</span><span class="nm">${m.home}</span>
         </div>
         <div class="vs">v</div>
-        <div class="team ${p.winner===m.away?"pick":""}" data-pick="away">
+        <div class="team ${p.winner===m.away?"pick":""} ${locked?"locked-opt":""}" data-pick="away">${pollBar(m,"away")}
           <span class="flag">${m.awayFlag||"⚽"}</span><span class="nm">${m.away}</span>
         </div>
       </div>
-      ${cfg.type==="winner"?`<div class="team draw ${p.winner==="Draw"?"pick":""}" data-pick="draw"><span class="nm">Draw</span></div>`:""}
+      ${cfg.type==="winner"?`<div class="team draw ${p.winner==="Draw"?"pick":""} ${locked?"locked-opt":""}" data-pick="draw">${pollBar(m,"draw")}<span class="nm">Draw</span></div>`:""}
       ${cfg.type==="score"?`
       <div class="score-row on">
         <input type="number" min="0" inputmode="numeric" data-s="h" value="${p.hs??""}" placeholder="0" aria-label="${m.home} score"/>
