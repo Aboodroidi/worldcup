@@ -361,6 +361,13 @@
   .grp-legend{display:flex;gap:18px;flex-wrap:wrap;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin:2px 2px 16px}
   .grp-legend .lg{display:inline-flex;align-items:center;gap:6px}
   .grp-legend .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+  /* loading state (data still fetching) */
+  .loading{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--muted);
+    font-family:'DM Mono',monospace;font-size:13px;padding:26px 16px}
+  .spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);
+    border-top-color:var(--green);animation:spin .8s linear infinite;flex:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .idbar label .spinner{width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-left:8px}
 
   /* reveal block (everyone's picks after lock) */
   .reveal{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;display:none}
@@ -468,7 +475,7 @@
   </div>
 
   <div class="idbar">
-    <label>Your name</label>
+    <label>Your name<span class="spinner" id="nameSpin" style="display:none"></span></label>
     <select id="nameSelect">
       <option value="" disabled selected>Select your name</option>
       <option value="__new__">+ Add new name</option>
@@ -551,6 +558,7 @@ let allPreds = [];         // every player's predictions (from db)
 let live = {};             // matchId -> {hs, as, finished, started, elapsed}  (from live API)
 let groups = [];           // [{name, teams:[{team_id,mp,w,d,l,gf,ga,gd,pts}]}]  (from live API)
 let teamById = {};         // API team_id -> English team name (built from games)
+let dataReady = false;     // false until first data (cache or network) is in -> show loaders
 
 const $ = s => document.querySelector(s);
 const kickoffMs = m => new Date(m.kickoff).getTime();
@@ -753,6 +761,7 @@ async function loadData(){
 const normTeam = s => (s||"").toLowerCase().replace(/[^a-z]/g,"");
 const apiName  = n => TEAM_ALIASES[n] || n;
 const escHtml  = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const LOADING  = t => `<div class="loading"><span class="spinner"></span>${t||"Loading…"}</div>`;
 // The API stores scorers as a Postgres-array-ish string, sometimes with curly
 // quotes: {"F. Balogun 45'+5'","D. Bobadilla 7'(OG)"}  -> [{name,minute,sort,og,pen}]
 function parseScorers(raw){
@@ -856,10 +865,13 @@ function populateNames(){
   const sel=$("#nameSelect"); if(!sel) return;
   const names=[...new Set(allPreds.map(p=>p.username))].sort((a,b)=>a.localeCompare(b));
   const saved=localStorage.getItem("wc_name");
+  const loadingNames=(!dataReady && !names.length);
+  const placeholder=loadingNames?"Loading names…":"Select your name";
   sel.innerHTML =
-    '<option value="" disabled'+(saved?'':' selected')+'>Select your name</option>' +
+    '<option value="" disabled'+(saved?'':' selected')+'>'+placeholder+'</option>' +
     names.map(n=>`<option value="${n.replace(/"/g,"&quot;")}"${n===saved?" selected":""}>${n}</option>`).join("") +
     '<option value="__new__">+ Add new name</option>';
+  const spin=$("#nameSpin"); if(spin) spin.style.display=loadingNames?"inline-block":"none";
   const inp=$("#username");
   if(saved && names.includes(saved)){ inp.style.display="none"; inp.value=saved; }
 }
@@ -880,7 +892,7 @@ function renderParticipants(){
   const cnt=$("#playerCount"), box=$("#chips");
   if(!cnt||!box) return;
   cnt.textContent=names.length?`${names.length} ${names.length===1?"person":"people"}`:"";
-  if(!names.length){ box.innerHTML=`<span class="none">No one has predicted this round yet.</span>`; return; }
+  if(!names.length){ box.innerHTML = dataReady ? `<span class="none">No one has predicted this round yet.</span>` : LOADING("Loading players…"); return; }
   box.innerHTML=names.sort((a,b)=>a.localeCompare(b)).map(n=>`<span class="chip"><span class="dot"></span>${n}</span>`).join("");
 }
 
@@ -889,7 +901,7 @@ function renderHistory(){
   const box=$("#history"); if(!box) return;
   const played=MATCHES.filter(m=>results[m.id])
     .sort((a,b)=>kickoffMs(b)-kickoffMs(a));
-  if(!played.length){ box.innerHTML=`<div class="empty">No finished matches yet. Played matches appear here with results.</div>`; return; }
+  if(!played.length){ box.innerHTML = dataReady ? `<div class="empty">No finished matches yet. Played matches appear here with results.</div>` : LOADING("Loading matches…"); return; }
   box.innerHTML=played.map(m=>{
     const res=results[m.id];
     const realWinner = res.hs>res.as?m.home:res.as>res.hs?m.away:"Draw";
@@ -967,7 +979,7 @@ function computeBoard(){
 }
 function renderBoard(){
   const board=computeBoard(), lb=$("#lb");
-  if(!board.length){ lb.innerHTML=`<div class="empty">No points yet. Standings appear once results are in.</div>`; return; }
+  if(!board.length){ lb.innerHTML = dataReady ? `<div class="empty">No points yet. Standings appear once results are in.</div>` : LOADING("Loading leaderboard…"); return; }
   lb.innerHTML=board.map(([nm,pt],i)=>`
     <div class="lb-row ${i<3?"top"+(i+1):""}" data-user="${encodeURIComponent(nm)}">
       <span class="rk">${i+1}</span>
@@ -982,7 +994,7 @@ function renderBoard(){
 /* ---------------- group standings ---------------- */
 function renderGroups(){
   const box=$("#groups"); if(!box) return;
-  if(!groups.length){ box.innerHTML=`<div class="empty">Group standings unavailable right now.</div>`; return; }
+  if(!groups.length){ box.innerHTML = dataReady ? `<div class="empty">Group standings unavailable right now.</div>` : LOADING("Loading group standings…"); return; }
   const sorted=[...groups].sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const legend=`<div class="grp-legend">
     <span class="lg"><span class="sw" style="background:rgba(31,214,95,.5)"></span>Top 2 advance</span>
@@ -1096,13 +1108,14 @@ function saveCache(){
 function hydrateFromCache(){
   try{
     const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-    if(!c) return;
+    if(!c) return false;
     if(c.results)  results  = c.results;
     if(c.live)     live     = c.live;
     if(c.groups)   groups   = c.groups;
     if(c.allPreds) allPreds = c.allPreds;
     if(c.teamById) teamById = c.teamById;
-  }catch(e){}
+    return true;
+  }catch(e){ return false; }
 }
 
 /* ---------------- live score polling ---------------- */
@@ -1123,9 +1136,10 @@ async function pollLive(){
   // remember name locally for convenience
   $("#nameSelect").addEventListener("change", onNameSelect);
   $("#username").addEventListener("input",e=>localStorage.setItem("wc_name",e.target.value.trim()));
-  hydrateFromCache();   // paint instantly from the last snapshot (or static fixtures)
-  renderAll();
-  await loadData();     // then refresh from the network
+  dataReady = hydrateFromCache();   // cached snapshot? -> real data, no loaders
+  renderAll();                      // paint instantly (loaders shown if no cache yet)
+  await loadData();                 // then refresh from the network
+  dataReady = true;                 // network done -> swap any loaders for real/empty states
   saveCache();
   lastLiveSig = liveSig();
   renderAll();
