@@ -732,7 +732,7 @@ async function savePicks(){
   $("#saveBtn").disabled=false;
   if(error){ toast("Save failed — check console"); console.error(error); return; }
   toast("Predictions saved ✓");
-  await loadData(); renderMatches(); renderParticipants(); renderHistory(); populateNames();
+  await loadData(); saveCache(); renderMatches(); renderParticipants(); renderHistory(); populateNames();
 }
 
 /* ---------------- load db ---------------- */
@@ -1086,6 +1086,25 @@ $("#saveBtn").addEventListener("click",savePicks);
 let tT;
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove("on"),2200); }
 
+/* ---------------- instant-load cache ---------------- */
+// Snapshot of the last-known data so the page paints instantly on the next
+// visit instead of waiting on the network. Fresh data overwrites it ~1s later.
+const CACHE_KEY = "wc_cache_v1";
+function saveCache(){
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({results, live, groups, allPreds, teamById})); }catch(e){}
+}
+function hydrateFromCache(){
+  try{
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+    if(!c) return;
+    if(c.results)  results  = c.results;
+    if(c.live)     live     = c.live;
+    if(c.groups)   groups   = c.groups;
+    if(c.allPreds) allPreds = c.allPreds;
+    if(c.teamById) teamById = c.teamById;
+  }catch(e){}
+}
+
 /* ---------------- live score polling ---------------- */
 let lastLiveSig = "";
 function renderAll(){
@@ -1094,6 +1113,7 @@ function renderAll(){
 async function pollLive(){
   await Promise.all([loadLiveScores(), loadGroups()]);
   applyLiveResults();
+  saveCache();
   const sig = liveSig();
   if(sig!==lastLiveSig){ lastLiveSig = sig; renderAll(); }  // only repaint on change
 }
@@ -1103,10 +1123,12 @@ async function pollLive(){
   // remember name locally for convenience
   $("#nameSelect").addEventListener("change", onNameSelect);
   $("#username").addEventListener("input",e=>localStorage.setItem("wc_name",e.target.value.trim()));
-  await loadData();
+  hydrateFromCache();   // paint instantly from the last snapshot (or static fixtures)
+  renderAll();
+  await loadData();     // then refresh from the network
+  saveCache();
   lastLiveSig = liveSig();
-  renderMatches();
-  renderParticipants(); renderHistory(); populateNames();
+  renderAll();
   if(configured) setInterval(pollLive, LIVE_POLL_MS);   // real-time score refresh
 })();
 </script>
