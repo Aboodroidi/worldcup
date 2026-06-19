@@ -342,6 +342,25 @@
   .goal .gname{flex:1}
   .goal .gflag{font-size:16px;line-height:1}
   .goal .gtag{font-size:10px;letter-spacing:.06em;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:1px 4px;margin-left:2px}
+  /* group standings */
+  .grp-table{background:var(--card,rgba(255,255,255,.02));border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:14px;overflow-x:auto}
+  .grp-head{font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:15px;letter-spacing:.04em;color:var(--ink);margin-bottom:10px;text-transform:uppercase}
+  table.standings{width:100%;border-collapse:collapse;font-family:'DM Mono',monospace;font-size:13px}
+  table.standings th{font-weight:500;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:4px 6px;text-align:center}
+  table.standings th.tm,table.standings td.tm{text-align:left}
+  table.standings td{padding:7px 6px;text-align:center;color:var(--ink);border-top:1px solid rgba(255,255,255,.05)}
+  table.standings td.rk{color:var(--muted);width:18px}
+  table.standings td.tm{display:flex;align-items:center;gap:8px;min-width:120px}
+  table.standings td.tm .flag{font-size:18px;line-height:1}
+  table.standings td.tm .nm{font-family:'Archivo',sans-serif;font-weight:600;white-space:nowrap}
+  table.standings td.pts{font-weight:700;color:var(--green)}
+  table.standings td.gd{color:var(--muted)}
+  table.standings tr.q1 td{background:rgba(31,214,95,.08)}
+  table.standings tr.q1 td.rk{color:var(--green);font-weight:700}
+  table.standings tr.q3 td.rk{color:var(--gold);font-weight:700}
+  .grp-legend{display:flex;gap:18px;flex-wrap:wrap;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin:2px 2px 16px}
+  .grp-legend .lg{display:inline-flex;align-items:center;gap:6px}
+  .grp-legend .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
 
   /* reveal block (everyone's picks after lock) */
   .reveal{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;display:none}
@@ -459,6 +478,7 @@
 
   <div class="tabs">
     <div class="tab active" data-view="play">Predict</div>
+    <div class="tab" data-view="groups">Groups</div>
     <div class="tab" data-view="board">Leaderboard</div>
     <div class="tab" data-view="history">History</div>
   </div>
@@ -466,6 +486,11 @@
   <!-- PLAY VIEW -->
   <div id="playView">
     <div id="matches"></div>
+  </div>
+
+  <!-- GROUPS VIEW -->
+  <div id="groupsView" style="display:none">
+    <div id="groups"><div class="empty">Loading group standings…</div></div>
   </div>
 
   <!-- BOARD VIEW -->
@@ -524,6 +549,8 @@ const picks = {};          // matchId -> {winner, hs, as}
 let results = {};          // matchId -> {hs, as}  (from db + live API for finished games)
 let allPreds = [];         // every player's predictions (from db)
 let live = {};             // matchId -> {hs, as, finished, started, elapsed}  (from live API)
+let groups = [];           // [{name, teams:[{team_id,mp,w,d,l,gf,ga,gd,pts}]}]  (from live API)
+let teamById = {};         // API team_id -> English team name (built from games)
 
 const $ = s => document.querySelector(s);
 const kickoffMs = m => new Date(m.kickoff).getTime();
@@ -718,7 +745,7 @@ async function loadData(){
   allPreds = preds||[];
   results = {};
   (res||[]).forEach(r=>results[r.match_id]={hs:r.home_score,as:r.away_score});
-  await loadLiveScores();   // pull real-time scores from the API
+  await Promise.all([loadLiveScores(), loadGroups()]);   // real-time scores + standings
   applyLiveResults();       // finished games override / fill in results
 }
 
@@ -751,6 +778,8 @@ async function loadLiveScores(){
   }catch(e){ console.warn("Live scores unavailable:", e); return; }  // keep last known data
   const idx = {};
   games.forEach(g=>{
+    if(g.home_team_id && g.home_team_name_en) teamById[g.home_team_id]=g.home_team_name_en;
+    if(g.away_team_id && g.away_team_name_en) teamById[g.away_team_id]=g.away_team_name_en;
     if(!g.home_team_name_en || !g.away_team_name_en) return;
     idx[normTeam(g.home_team_name_en)+"|"+normTeam(g.away_team_name_en)] = g;
   });
@@ -777,6 +806,25 @@ function applyLiveResults(){
     if(s.finished) results[id]={hs:s.hs, as:s.as};   // FT -> official result
     else delete results[id];                          // live / not started -> not completed
   });
+}
+async function loadGroups(){
+  try{
+    const r = await fetch(LIVE_SCORES_URL.replace("/get/games","/get/groups"), {cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    groups = (await r.json()).groups || [];
+  }catch(e){ console.warn("Group standings unavailable:", e); }  // keep last known
+}
+// Flag + display-name lookup keyed by normalized team name (covers our spellings and the API's).
+const TEAM_FLAG={}, TEAM_DISPLAY={};
+MATCHES.forEach(m=>{
+  [["home","homeFlag"],["away","awayFlag"]].forEach(([t,f])=>{
+    [normTeam(m[t]), normTeam(apiName(m[t]))].forEach(k=>{ TEAM_FLAG[k]=m[f]; TEAM_DISPLAY[k]=m[t]; });
+  });
+});
+function teamMeta(id){
+  const apiNm = teamById[id] || "";
+  const k = normTeam(apiNm);
+  return { name: TEAM_DISPLAY[k] || apiNm || "—", flag: TEAM_FLAG[k] || "⚽" };
 }
 // Signature of live-relevant state, so polling only re-renders when something changed.
 function liveSig(){
@@ -931,6 +979,42 @@ function renderBoard(){
   });
 }
 
+/* ---------------- group standings ---------------- */
+function renderGroups(){
+  const box=$("#groups"); if(!box) return;
+  if(!groups.length){ box.innerHTML=`<div class="empty">Group standings unavailable right now.</div>`; return; }
+  const sorted=[...groups].sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const legend=`<div class="grp-legend">
+    <span class="lg"><span class="sw" style="background:rgba(31,214,95,.5)"></span>Top 2 advance</span>
+    <span class="lg"><span class="sw" style="background:rgba(212,175,55,.5)"></span>3rd — best thirds may advance</span>
+  </div>`;
+  box.innerHTML=legend+sorted.map(g=>{
+    const rows=[...(g.teams||[])].map(t=>({
+      team_id:t.team_id, mp:+t.mp||0, w:+t.w||0, d:+t.d||0, l:+t.l||0,
+      gf:+t.gf||0, ga:+t.ga||0, gd:+t.gd||0, pts:+t.pts||0
+    })).sort((a,b)=> b.pts-a.pts || b.gd-a.gd || b.gf-a.gf ||
+      teamMeta(a.team_id).name.localeCompare(teamMeta(b.team_id).name));
+    const body=rows.map((t,i)=>{
+      const me=teamMeta(t.team_id);
+      const cls=i<2?"q1":(i===2?"q3":"");
+      return `<tr class="${cls}">
+        <td class="rk">${i+1}</td>
+        <td class="tm"><span class="flag">${me.flag}</span><span class="nm">${escHtml(me.name)}</span></td>
+        <td>${t.mp}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
+        <td>${t.gf}</td><td>${t.ga}</td><td class="gd">${t.gd>0?"+":""}${t.gd}</td>
+        <td class="pts">${t.pts}</td>
+      </tr>`;
+    }).join("");
+    return `<div class="grp-table">
+      <div class="grp-head">Group ${escHtml(g.name)}</div>
+      <table class="standings">
+        <thead><tr><th></th><th class="tm">Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
+  }).join("");
+}
+
 /* ---------------- admin ---------------- */
 function renderAdmin(){
   const wrap=$("#adminMatches");
@@ -980,11 +1064,13 @@ $("#uClose").addEventListener("click",()=>$("#userModal").classList.remove("on")
 /* ---------------- view switching ---------------- */
 function show(view){
   $("#playView").style.display = view==="play"?"block":"none";
+  $("#groupsView").style.display = view==="groups"?"block":"none";
   $("#boardView").style.display = view==="board"?"block":"none";
   $("#adminView").style.display = view==="admin"?"block":"none";
   $("#historyView").style.display = view==="history"?"block":"none";
   $("#saveBar").style.display = view==="play"?"block":"none";
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===view));
+  if(view==="groups") renderGroups();
   if(view==="board") renderBoard();
   if(view==="history") renderHistory();
 }
@@ -1003,10 +1089,10 @@ function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on
 /* ---------------- live score polling ---------------- */
 let lastLiveSig = "";
 function renderAll(){
-  renderMatches(); renderParticipants(); renderHistory(); renderBoard(); populateNames();
+  renderMatches(); renderParticipants(); renderHistory(); renderBoard(); renderGroups(); populateNames();
 }
 async function pollLive(){
-  await loadLiveScores();
+  await Promise.all([loadLiveScores(), loadGroups()]);
   applyLiveResults();
   const sig = liveSig();
   if(sig!==lastLiveSig){ lastLiveSig = sig; renderAll(); }  // only repaint on change
