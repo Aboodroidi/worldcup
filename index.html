@@ -20,6 +20,20 @@
   // Lock picks this many minutes before kickoff
   const LOCK_MINUTES_BEFORE = 15;
 
+  // ===== LIVE SCORES =====
+  // Real-time scores from the open worldcup26.ir API (no key needed, CORS-open).
+  // Finished games auto-fill results (no manual logging); in-progress games show a LIVE score.
+  const LIVE_SCORES_URL = "https://worldcup26.ir/get/games";
+  const LIVE_POLL_MS    = 60000;   // how often to refresh scores (ms)
+  // Map our team names -> the API's English names where they differ.
+  const TEAM_ALIASES = {
+    "Cabo Verde": "Cape Verde",
+    "Congo DR":   "Democratic Republic of the Congo",
+    "Czechia":    "Czech Republic",
+    "Türkiye":    "Turkey",
+    "USA":        "United States"
+  };
+
   // ===== SCORING =====
   // Group stage: correct winner = 1 pt
   // Knockout base: winner AND exact score both correct = 3 pts
@@ -272,7 +286,13 @@
   .team.draw{grid-column:1 / -1;margin-top:10px;padding:11px 8px}
   .team.draw .nm{color:var(--muted)}
   .team.draw.pick .nm{color:var(--green)}
-  .vs{font-family:'DM Mono',monospace;color:var(--muted);font-size:12px}
+  .vs{font-family:'DM Mono',monospace;color:var(--muted);font-size:12px;display:flex;flex-direction:column;align-items:center;gap:5px}
+  .vs .sc{font-size:18px;font-weight:500;color:var(--ink);letter-spacing:.02em}
+  .mstatus{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.08em;
+    display:inline-flex;align-items:center;gap:5px;padding:2px 7px;border-radius:999px;white-space:nowrap}
+  .mstatus.ft{color:var(--muted);background:rgba(255,255,255,.05);border:1px solid var(--line)}
+  .mstatus.live{color:var(--magenta);background:rgba(255,45,120,.12);border:1px solid rgba(255,45,120,.4)}
+  .mstatus.live .livedot{width:7px;height:7px;border-radius:50%;background:var(--magenta);animation:lvpulse 1.4s infinite}
 
   .score-row{display:none;gap:10px;align-items:center;justify-content:center;margin-bottom:14px}
   .score-row.on{display:flex}
@@ -300,6 +320,28 @@
   .result-tag{
     font-family:'DM Mono',monospace;font-size:12px;color:var(--gold);margin-top:6px
   }
+  .livescore{
+    font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--magenta);
+    margin-top:8px;display:flex;align-items:center;gap:7px;letter-spacing:.04em
+  }
+  .livescore .lvdot{
+    width:8px;height:8px;border-radius:50%;background:var(--magenta);
+    box-shadow:0 0 0 0 var(--magenta);animation:lvpulse 1.4s infinite
+  }
+  @keyframes lvpulse{
+    0%{box-shadow:0 0 0 0 rgba(255,45,120,.55)}
+    70%{box-shadow:0 0 0 7px rgba(255,45,120,0)}
+    100%{box-shadow:0 0 0 0 rgba(255,45,120,0)}
+  }
+  /* goal timeline (history) */
+  .goals{margin-top:10px;border-top:1px dashed var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px}
+  .goal{display:flex;align-items:center;gap:9px;font-family:'DM Mono',monospace;font-size:13px;color:var(--ink)}
+  .goal .gmin{min-width:42px;font-weight:500;color:var(--green);text-align:right}
+  .goal.away .gmin{color:var(--gold)}
+  .goal .gico{font-size:12px;opacity:.9}
+  .goal .gname{flex:1}
+  .goal .gflag{font-size:16px;line-height:1}
+  .goal .gtag{font-size:10px;letter-spacing:.06em;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:1px 4px;margin-left:2px}
 
   /* reveal block (everyone's picks after lock) */
   .reveal{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;display:none}
@@ -479,8 +521,9 @@ if (configured) sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 else document.getElementById("cfgwarn").style.display = "block";
 
 const picks = {};          // matchId -> {winner, hs, as}
-let results = {};          // matchId -> {hs, as}  (from db)
+let results = {};          // matchId -> {hs, as}  (from db + live API for finished games)
 let allPreds = [];         // every player's predictions (from db)
+let live = {};             // matchId -> {hs, as, finished, started, elapsed}  (from live API)
 
 const $ = s => document.querySelector(s);
 const kickoffMs = m => new Date(m.kickoff).getTime();
@@ -567,6 +610,7 @@ function renderMatches(){
         <span class="dot"></span><span class="t">${locked?"Locked":fmtLeft(lockMs(m)-Date.now())}</span>
         <span class="ko">\ud83d\udd53 ${omanTime(m)} (Oman)</span>
       </div>
+      ${live[m.id]&&live[m.id].started&&!live[m.id].finished?`<div class="livescore"><span class="lvdot"></span>LIVE${liveMinute(live[m.id].elapsed)?` \u00b7 ${liveMinute(live[m.id].elapsed)}`:""} \u00b7 ${m.home} ${live[m.id].hs}\u2013${live[m.id].as} ${m.away}</div>`:""}
       ${results[m.id]?`<div class="result-tag">Result: ${m.home} ${results[m.id].hs}–${results[m.id].as} ${m.away}</div>`:""}
       <div class="reveal ${locked?"on":""}"><h4>Everyone's picks</h4><div class="predlist"></div></div>
     `;
@@ -674,6 +718,83 @@ async function loadData(){
   allPreds = preds||[];
   results = {};
   (res||[]).forEach(r=>results[r.match_id]={hs:r.home_score,as:r.away_score});
+  await loadLiveScores();   // pull real-time scores from the API
+  applyLiveResults();       // finished games override / fill in results
+}
+
+/* ---------------- live scores (worldcup26.ir) ---------------- */
+const normTeam = s => (s||"").toLowerCase().replace(/[^a-z]/g,"");
+const apiName  = n => TEAM_ALIASES[n] || n;
+const escHtml  = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+// The API stores scorers as a Postgres-array-ish string, sometimes with curly
+// quotes: {"F. Balogun 45'+5'","D. Bobadilla 7'(OG)"}  -> [{name,minute,sort,og,pen}]
+function parseScorers(raw){
+  if(raw==null) return [];
+  let s=String(raw).trim();
+  if(!s || s.toLowerCase()==="null") return [];
+  s=s.replace(/^\{|\}$/g,"").replace(/[“”„‟]/g,'"');
+  const parts=s.match(/"([^"]*)"/g) || [];
+  return parts.map(p=>p.slice(1,-1).trim()).filter(Boolean).map(entry=>{
+    const mm=entry.match(/(\d+)'(?:\+(\d+)')?/);
+    const base=mm?parseInt(mm[1],10):999, extra=mm&&mm[2]?parseInt(mm[2],10):0;
+    const minute=mm?`${mm[1]}'${mm[2]?"+"+mm[2]:""}`:"";
+    const name=entry.replace(/\s*\d+'.*$/,"").trim();
+    return {name,minute,sort:base*100+extra,og:/\(OG\)/i.test(entry),pen:/\(P\)/i.test(entry)};
+  });
+}
+async function loadLiveScores(){
+  let games;
+  try{
+    const r = await fetch(LIVE_SCORES_URL, {cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    games = (await r.json()).games || [];
+  }catch(e){ console.warn("Live scores unavailable:", e); return; }  // keep last known data
+  const idx = {};
+  games.forEach(g=>{
+    if(!g.home_team_name_en || !g.away_team_name_en) return;
+    idx[normTeam(g.home_team_name_en)+"|"+normTeam(g.away_team_name_en)] = g;
+  });
+  const next = {};
+  MATCHES.forEach(m=>{
+    const g = idx[normTeam(apiName(m.home))+"|"+normTeam(apiName(m.away))];
+    if(!g) return;
+    const hs = parseInt(g.home_score,10), as = parseInt(g.away_score,10);
+    if(Number.isNaN(hs) || Number.isNaN(as)) return;
+    const finished = String(g.finished).toUpperCase()==="TRUE";
+    const started  = finished || !!(g.time_elapsed && !/not.?started/i.test(g.time_elapsed));
+    next[m.id] = {hs, as, finished, started, elapsed:g.time_elapsed,
+                  homeScorers:parseScorers(g.home_scorers),
+                  awayScorers:parseScorers(g.away_scorers)};
+  });
+  live = next;
+}
+function applyLiveResults(){
+  // A finished game from the API becomes the official result (auto-logging).
+  Object.entries(live).forEach(([id,s])=>{ if(s.finished) results[id]={hs:s.hs, as:s.as}; });
+}
+// Signature of live-relevant state, so polling only re-renders when something changed.
+function liveSig(){
+  return Object.keys(results).sort().map(k=>`${k}:${results[k].hs}-${results[k].as}`).join(",")
+       + "|" + Object.keys(live).sort().map(k=>`${k}:${live[k].hs}-${live[k].as}:${live[k].finished}:${live[k].started}:${live[k].elapsed}`).join(",");
+}
+// Format the API's elapsed value: numeric -> "67'", keep "HT"/"ET" etc. as-is.
+function liveMinute(e){
+  const t=String(e||"").trim();
+  if(!t || /^(not.?started|finished)$/i.test(t)) return "";
+  return /^\d+$/.test(t) ? t+"'" : t;
+}
+// Status badge shown under the score: live (minutes), or grey FT when finished.
+function matchStatus(m){
+  const lv=live[m.id];
+  if(lv){
+    if(lv.finished) return `<span class="mstatus ft">FT</span>`;
+    if(lv.started){
+      const mn=liveMinute(lv.elapsed);
+      return `<span class="mstatus live"><span class="livedot"></span>LIVE${mn?` · ${mn}`:""}</span>`;
+    }
+  }
+  if(results[m.id]) return `<span class="mstatus ft">FT</span>`;  // finished via DB, no live data
+  return "";
 }
 
 /* ---------------- name selector ---------------- */
@@ -720,6 +841,19 @@ function renderHistory(){
     const realWinner = res.hs>res.as?m.home:res.as>res.hs?m.away:"Draw";
     const rows=allPreds.filter(p=>p.match_id===m.id);
     const cfg=STAGE[m.stage];
+    // goal timeline (scorers + minute) from the live API, if available
+    const lv=live[m.id];
+    const goals=lv?[
+      ...(lv.homeScorers||[]).map(g=>({...g,side:"home"})),
+      ...(lv.awayScorers||[]).map(g=>({...g,side:"away"}))
+    ].sort((a,b)=>a.sort-b.sort):[];
+    const timeline = goals.length ? `<div class="goals">${goals.map(g=>`
+      <div class="goal ${g.side}">
+        <span class="gmin">${g.minute||"·"}</span>
+        <span class="gico">⚽</span>
+        <span class="gname">${escHtml(g.name)}${g.og?' <span class="gtag">OG</span>':""}${g.pen?' <span class="gtag">PEN</span>':""}</span>
+        <span class="gflag">${(g.side==="home"?m.homeFlag:m.awayFlag)||""}</span>
+      </div>`).join("")}</div>` : "";
     const preds=rows.map(r=>{
       let hit=false;
       if(cfg.type==="winner") hit=r.winner===realWinner;
@@ -730,10 +864,11 @@ function renderHistory(){
     return `<div class="card">
       <div class="teams">
         <div class="team ${realWinner===m.home?"pick":""}"><span class="flag">${m.homeFlag||"\u26bd"}</span><span class="nm">${m.home}</span></div>
-        <div class="vs">${res.hs}\u2013${res.as}</div>
+        <div class="vs"><span class="sc">${res.hs}\u2013${res.as}</span>${matchStatus(m)}</div>
         <div class="team ${realWinner===m.away?"pick":""}"><span class="flag">${m.awayFlag||"\u26bd"}</span><span class="nm">${m.away}</span></div>
       </div>
       <div class="result-tag">Final \u00b7 ${realWinner==="Draw"?"Draw":realWinner+" win"}</div>
+      ${timeline}
       <div class="reveal on"><h4>Everyone\u2019s picks</h4><div>${preds}</div></div>
     </div>`;
   }).join("");
@@ -859,14 +994,28 @@ $("#saveBtn").addEventListener("click",savePicks);
 let tT;
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(tT); tT=setTimeout(()=>t.classList.remove("on"),2200); }
 
+/* ---------------- live score polling ---------------- */
+let lastLiveSig = "";
+function renderAll(){
+  renderMatches(); renderParticipants(); renderHistory(); renderBoard(); populateNames();
+}
+async function pollLive(){
+  await loadLiveScores();
+  applyLiveResults();
+  const sig = liveSig();
+  if(sig!==lastLiveSig){ lastLiveSig = sig; renderAll(); }  // only repaint on change
+}
+
 /* ---------------- boot ---------------- */
 (async()=>{
   // remember name locally for convenience
   $("#nameSelect").addEventListener("change", onNameSelect);
   $("#username").addEventListener("input",e=>localStorage.setItem("wc_name",e.target.value.trim()));
   await loadData();
+  lastLiveSig = liveSig();
   renderMatches();
   renderParticipants(); renderHistory(); populateNames();
+  if(configured) setInterval(pollLive, LIVE_POLL_MS);   // real-time score refresh
 })();
 </script>
 </body>
