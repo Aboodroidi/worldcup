@@ -769,8 +769,14 @@ async function loadLiveScores(){
   live = next;
 }
 function applyLiveResults(){
-  // A finished game from the API becomes the official result (auto-logging).
-  Object.entries(live).forEach(([id,s])=>{ if(s.finished) results[id]={hs:s.hs, as:s.as}; });
+  // Points, leaderboard and History all key off results[id] existing, so a match
+  // counts as "completed" only once the API marks it finished (FT). A game that is
+  // live or not yet started is removed from results — no early points, stays out of
+  // History until the final whistle.
+  Object.entries(live).forEach(([id,s])=>{
+    if(s.finished) results[id]={hs:s.hs, as:s.as};   // FT -> official result
+    else delete results[id];                          // live / not started -> not completed
+  });
 }
 // Signature of live-relevant state, so polling only re-renders when something changed.
 function liveSig(){
