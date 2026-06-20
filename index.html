@@ -1072,7 +1072,8 @@ function openUserHistory(name){
   const rows=userResults(name).slice().reverse();
   const total=rows.reduce((a,r)=>a+r.pts,0);
   const hits=rows.filter(r=>r.hit).length;
-  $("#uTitle").innerHTML=`${name} <span class="usub">${hits}/${rows.length} correct \u00b7 ${total} pts</span>`;
+  const acc=rows.length?Math.round(hits/rows.length*100):0;
+  $("#uTitle").innerHTML=`${name} <span class="usub">${hits}/${rows.length} correct \u00b7 ${acc}% \u00b7 ${total} pts</span>`;
   $("#uBody").innerHTML = rows.length ? rows.map(r=>`
     <div class="urow ${r.hit?'h':'m'}">
       <span class="ufd">${r.hit?'\u2713':'\u2717'}</span>
