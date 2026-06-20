@@ -620,6 +620,8 @@ function renderMatches(){
     }
     const locked=isLocked(m);
     const p=picks[m.id]||{};
+    const lv=live[m.id];
+    const liveNow=lv&&lv.started&&!lv.finished;   // in progress -> show score like a finished card
     const card=document.createElement("div");
     card.className="card"+(locked?" locked":"");
     card.dataset.id=m.id;
@@ -629,7 +631,7 @@ function renderMatches(){
         <div class="team ${p.winner===m.home?"pick":""} ${locked?"locked-opt":""}" data-pick="home">${pollBar(m,"home")}
           <span class="flag">${m.homeFlag||"⚽"}</span><span class="nm">${m.home}</span>
         </div>
-        <div class="vs">v</div>
+        <div class="vs">${liveNow?`<span class="sc">${lv.hs}–${lv.as}</span>${matchStatus(m)}`:"v"}</div>
         <div class="team ${p.winner===m.away?"pick":""} ${locked?"locked-opt":""}" data-pick="away">${pollBar(m,"away")}
           <span class="flag">${m.awayFlag||"⚽"}</span><span class="nm">${m.away}</span>
         </div>
@@ -645,8 +647,7 @@ function renderMatches(){
         <span class="dot"></span><span class="t">${locked?"Locked":fmtLeft(lockMs(m)-Date.now())}</span>
         <span class="ko">\ud83d\udd53 ${omanTime(m)} (Oman)</span>
       </div>
-      ${live[m.id]&&live[m.id].started&&!live[m.id].finished?`<div class="livescore"><span class="lvdot"></span>LIVE${liveMinute(live[m.id].elapsed)?` \u00b7 ${liveMinute(live[m.id].elapsed)}`:""} \u00b7 ${m.home} ${live[m.id].hs}\u2013${live[m.id].as} ${m.away}</div>`:""}
-      ${results[m.id]?`<div class="result-tag">Result: ${m.home} ${results[m.id].hs}–${results[m.id].as} ${m.away}</div>`:""}
+      ${liveNow?goalTimeline(m):""}
       <div class="reveal ${locked?"on":""}"><h4>Everyone's picks</h4><div class="predlist"></div></div>
     `;
     wrap.appendChild(card);
@@ -840,11 +841,32 @@ function liveSig(){
   return Object.keys(results).sort().map(k=>`${k}:${results[k].hs}-${results[k].as}`).join(",")
        + "|" + Object.keys(live).sort().map(k=>`${k}:${live[k].hs}-${live[k].as}:${live[k].finished}:${live[k].started}:${live[k].elapsed}`).join(",");
 }
-// Format the API's elapsed value: numeric -> "67'", keep "HT"/"ET" etc. as-is.
+// Format the API's elapsed value into a real match minute, or "" if it is just a
+// status word ("live", "in progress"). "45"/"45+2" -> "45'", HT/ET/AET kept as-is.
 function liveMinute(e){
   const t=String(e||"").trim();
-  if(!t || /^(not.?started|finished)$/i.test(t)) return "";
-  return /^\d+$/.test(t) ? t+"'" : t;
+  if(!t) return "";
+  if(/^\d+(\+\d+)?$/.test(t)) return t+"'";        // 45 or 45+2
+  if(/^(ht|et|aet|pen)$/i.test(t)) return t.toUpperCase();
+  if(/\d/.test(t)) return t;                       // already like "67'"
+  return "";                                       // "live", "in progress", etc.
+}
+// Goal timeline (minute · scorer · flag), sorted across both teams. Shared by the
+// live Predict card and the finished History card so they look identical.
+function goalTimeline(m){
+  const lv=live[m.id]; if(!lv) return "";
+  const goals=[
+    ...(lv.homeScorers||[]).map(g=>({...g,side:"home"})),
+    ...(lv.awayScorers||[]).map(g=>({...g,side:"away"}))
+  ].sort((a,b)=>a.sort-b.sort);
+  if(!goals.length) return "";
+  return `<div class="goals">${goals.map(g=>`
+    <div class="goal ${g.side}">
+      <span class="gmin">${g.minute||"·"}</span>
+      <span class="gico">⚽</span>
+      <span class="gname">${escHtml(g.name)}${g.og?' <span class="gtag">OG</span>':""}${g.pen?' <span class="gtag">PEN</span>':""}</span>
+      <span class="gflag">${(g.side==="home"?m.homeFlag:m.awayFlag)||""}</span>
+    </div>`).join("")}</div>`;
 }
 // Status badge shown under the score: live (minutes), or grey FT when finished.
 function matchStatus(m){
@@ -907,19 +929,7 @@ function renderHistory(){
     const realWinner = res.hs>res.as?m.home:res.as>res.hs?m.away:"Draw";
     const rows=allPreds.filter(p=>p.match_id===m.id);
     const cfg=STAGE[m.stage];
-    // goal timeline (scorers + minute) from the live API, if available
-    const lv=live[m.id];
-    const goals=lv?[
-      ...(lv.homeScorers||[]).map(g=>({...g,side:"home"})),
-      ...(lv.awayScorers||[]).map(g=>({...g,side:"away"}))
-    ].sort((a,b)=>a.sort-b.sort):[];
-    const timeline = goals.length ? `<div class="goals">${goals.map(g=>`
-      <div class="goal ${g.side}">
-        <span class="gmin">${g.minute||"·"}</span>
-        <span class="gico">⚽</span>
-        <span class="gname">${escHtml(g.name)}${g.og?' <span class="gtag">OG</span>':""}${g.pen?' <span class="gtag">PEN</span>':""}</span>
-        <span class="gflag">${(g.side==="home"?m.homeFlag:m.awayFlag)||""}</span>
-      </div>`).join("")}</div>` : "";
+    const timeline = goalTimeline(m);   // scorers + minute, shared with live cards
     const preds=rows.map(r=>{
       let hit=false;
       if(cfg.type==="winner") hit=r.winner===realWinner;
