@@ -293,6 +293,8 @@
   .mstatus.ft{color:var(--muted);background:rgba(255,255,255,.05);border:1px solid var(--line)}
   .mstatus.live{color:var(--magenta);background:rgba(255,45,120,.12);border:1px solid rgba(255,45,120,.4)}
   .mstatus.live .livedot{width:7px;height:7px;border-radius:50%;background:var(--magenta);animation:lvpulse 1.4s infinite}
+  .livemin{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--magenta)}
+  .livemin:empty{display:none}
 
   .score-row{display:none;gap:10px;align-items:center;justify-content:center;margin-bottom:14px}
   .score-row.on{display:flex}
@@ -631,7 +633,7 @@ function renderMatches(){
         <div class="team ${p.winner===m.home?"pick":""} ${locked?"locked-opt":""}" data-pick="home">${pollBar(m,"home")}
           <span class="flag">${m.homeFlag||"⚽"}</span><span class="nm">${m.home}</span>
         </div>
-        <div class="vs">${liveNow?`<span class="sc">${lv.hs}–${lv.as}</span>${matchStatus(m)}`:"v"}</div>
+        <div class="vs">${liveNow?`<span class="sc">${lv.hs}–${lv.as}</span>${matchStatus(m)}<span class="livemin" data-lm="${m.id}">${liveClock(m)}</span>`:"v"}</div>
         <div class="team ${p.winner===m.away?"pick":""} ${locked?"locked-opt":""}" data-pick="away">${pollBar(m,"away")}
           <span class="flag">${m.awayFlag||"⚽"}</span><span class="nm">${m.away}</span>
         </div>
@@ -701,6 +703,10 @@ setInterval(()=>{
     const left=lockMs(m)-Date.now();
     if(left<=0 && !el.classList.contains("locked")){ renderMatches(); return; }
     if(left>0) el.querySelector(".t").textContent=fmtLeft(left);
+  });
+  document.querySelectorAll("[data-lm]").forEach(el=>{   // tick the live match minute
+    const m=MATCHES.find(x=>x.id===el.dataset.lm); if(!m) return;
+    el.textContent=liveClock(m);
   });
 },1000);
 setInterval(()=>{
@@ -868,18 +874,26 @@ function goalTimeline(m){
       <span class="gflag">${(g.side==="home"?m.homeFlag:m.awayFlag)||""}</span>
     </div>`).join("")}</div>`;
 }
-// Status badge shown under the score: live (minutes), or grey FT when finished.
+// Status badge shown under the score: a LIVE pill, or grey FT when finished.
 function matchStatus(m){
   const lv=live[m.id];
   if(lv){
     if(lv.finished) return `<span class="mstatus ft">FT</span>`;
-    if(lv.started){
-      const mn=liveMinute(lv.elapsed);
-      return `<span class="mstatus live"><span class="livedot"></span>LIVE${mn?` · ${mn}`:""}</span>`;
-    }
+    if(lv.started) return `<span class="mstatus live"><span class="livedot"></span>LIVE</span>`;
   }
   if(results[m.id]) return `<span class="mstatus ft">FT</span>`;  // finished via DB, no live data
   return "";
+}
+// Current match minute for a live game: use the API minute if it sends one,
+// otherwise estimate from kickoff. Shown (and ticked) under the LIVE pill.
+function liveClock(m){
+  const lv=live[m.id];
+  if(!lv || !lv.started || lv.finished) return "";
+  const apiMin=liveMinute(lv.elapsed);
+  if(apiMin) return apiMin;
+  const mins=Math.floor((Date.now()-kickoffMs(m))/60000);
+  if(mins<0) return "";
+  return (mins>90?"90+":mins)+"'";
 }
 
 /* ---------------- name selector ---------------- */
