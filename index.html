@@ -746,15 +746,18 @@ async function savePicks(){
 
 /* ---------------- load db ---------------- */
 async function loadData(){
-  if(!configured) return;
-  const [{data:preds},{data:res}] = await Promise.all([
-    sb.from("predictions").select("*"),
-    sb.from("results").select("*")
-  ]);
-  allPreds = preds||[];
-  results = {};
-  (res||[]).forEach(r=>results[r.match_id]={hs:r.home_score,as:r.away_score});
-  await Promise.all([loadLiveScores(), loadGroups()]);   // real-time scores + standings
+  if(configured){
+    try{
+      const [{data:preds},{data:res}] = await Promise.all([
+        sb.from("predictions").select("*"),
+        sb.from("results").select("*")
+      ]);
+      allPreds = preds||[];
+      results = {};
+      (res||[]).forEach(r=>results[r.match_id]={hs:r.home_score,as:r.away_score});
+    }catch(e){ console.warn("Supabase load failed:", e); }   // don't block live scores
+  }
+  await Promise.all([loadLiveScores(), loadGroups()]);   // always pull live scores + standings
   applyLiveResults();       // finished games override / fill in results
 }
 
@@ -1146,12 +1149,13 @@ async function pollLive(){
   $("#username").addEventListener("input",e=>localStorage.setItem("wc_name",e.target.value.trim()));
   dataReady = hydrateFromCache();   // cached snapshot? -> real data, no loaders
   renderAll();                      // paint instantly (loaders shown if no cache yet)
-  await loadData();                 // then refresh from the network
+  try{ await loadData(); }          // API call on launch
+  catch(e){ console.warn("Initial load failed:", e); }
   dataReady = true;                 // network done -> swap any loaders for real/empty states
   saveCache();
   lastLiveSig = liveSig();
   renderAll();
-  if(configured) setInterval(pollLive, LIVE_POLL_MS);   // real-time score refresh
+  setInterval(pollLive, LIVE_POLL_MS);   // then refresh every 60s, no matter what
 })();
 </script>
 </body>
