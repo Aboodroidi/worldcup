@@ -1025,12 +1025,16 @@ function computeBoard(){
 function renderBoard(){
   const board=computeBoard(), lb=$("#lb");
   if(!board.length){ lb.innerHTML = dataReady ? `<div class="empty">No points yet. Standings appear once results are in.</div>` : LOADING("Loading leaderboard…"); return; }
-  lb.innerHTML=board.map(([nm,pt],i)=>`
-    <div class="lb-row ${i<3?"top"+(i+1):""}" data-user="${encodeURIComponent(nm)}">
-      <span class="rk">${i+1}</span>
+  // Dense ranking: equal points share a rank, next score gets the next number (1,1,2,2,3…).
+  let rank=0, prevPts=null;
+  lb.innerHTML=board.map(([nm,pt])=>{
+    if(pt!==prevPts){ rank++; prevPts=pt; }
+    return `<div class="lb-row ${rank<=3?"top"+rank:""}" data-user="${encodeURIComponent(nm)}">
+      <span class="rk">${rank}</span>
       <span class="nm">${nm}${formDots(nm)}</span>
       <span class="pt">${pt}</span>
-    </div>`).join("");
+    </div>`;
+  }).join("");
   lb.querySelectorAll(".lb-row").forEach(row=>{
     row.addEventListener("click",()=>openUserHistory(decodeURIComponent(row.dataset.user)));
   });
