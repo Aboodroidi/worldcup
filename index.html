@@ -780,12 +780,25 @@ async function savePicks(){
 }
 
 /* ---------------- load db ---------------- */
+// Supabase caps a single response at 1000 rows, so fetch every row in pages —
+// otherwise newer predictions get silently dropped and players go missing.
+async function fetchAllRows(table){
+  const size=1000; let from=0, out=[];
+  while(true){
+    const { data, error } = await sb.from(table).select("*").range(from, from+size-1);
+    if(error) throw error;
+    out.push(...(data||[]));
+    if(!data || data.length<size) break;
+    from += size;
+  }
+  return out;
+}
 async function loadData(){
   if(configured){
     try{
-      const [{data:preds},{data:res}] = await Promise.all([
-        sb.from("predictions").select("*"),
-        sb.from("results").select("*")
+      const [preds, res] = await Promise.all([
+        fetchAllRows("predictions"),
+        fetchAllRows("results")
       ]);
       allPreds = preds||[];
       results = {};
