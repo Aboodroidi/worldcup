@@ -877,7 +877,8 @@ function teamMeta(id){
 // Signature of live-relevant state, so polling only re-renders when something changed.
 function liveSig(){
   return Object.keys(results).sort().map(k=>`${k}:${results[k].hs}-${results[k].as}`).join(",")
-       + "|" + Object.keys(live).sort().map(k=>`${k}:${live[k].hs}-${live[k].as}:${live[k].finished}:${live[k].started}:${live[k].elapsed}`).join(",");
+       + "|" + Object.keys(live).sort().map(k=>`${k}:${live[k].hs}-${live[k].as}:${live[k].finished}:${live[k].started}:${live[k].elapsed}`).join(",")
+       + "|" + allPreds.map(p=>`${p.username}~${p.match_id}~${p.winner}~${p.home_score}~${p.away_score}`).sort().join(",");
 }
 // Format the API's elapsed value into a real match minute, or "" if it is just a
 // status word ("live", "in progress"). "45"/"45+2" -> "45'", HT/ET/AET kept as-is.
@@ -1174,8 +1175,7 @@ function renderAll(){
   renderMatches(); renderParticipants(); renderHistory(); renderBoard(); renderGroups(); populateNames();
 }
 async function pollLive(){
-  await Promise.all([loadLiveScores(), loadGroups()]);
-  applyLiveResults();
+  await loadData();   // refresh predictions + results + live scores + standings
   saveCache();
   const sig = liveSig();
   if(sig!==lastLiveSig){ lastLiveSig = sig; renderAll(); }  // only repaint on change
