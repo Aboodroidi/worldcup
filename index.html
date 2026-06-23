@@ -958,9 +958,9 @@ function onNameSelect(){
 
 /* ---------------- who has predicted (names only) ---------------- */
 function renderParticipants(){
-  // Anyone who predicted a match that hasn't finished yet — stays visible after the
-  // round locks and across reloads (drops off only once the games are played).
-  const openIds=new Set(MATCHES.filter(m=>!results[m.id]).map(m=>m.id));
+  // Only the current open round (the latest unlocked batch), so it reflects who has
+  // predicted these games — not players from earlier, already-locked batches.
+  const openIds=new Set(MATCHES.filter(m=>!results[m.id] && !isLocked(m)).map(m=>m.id));
   const names=[...new Set(allPreds.filter(p=>openIds.has(p.match_id)).map(p=>p.username))];
   const cnt=$("#playerCount"), box=$("#chips");
   if(!cnt||!box) return;
