@@ -529,7 +529,8 @@
     <select id="nameSelect">
       <option value="" disabled selected>Select your name</option>
     </select>
-    <input id="username" placeholder="…or type your name" autocomplete="name" />
+    <!-- roster is fixed: name comes only from the dropdown; this just feeds the save logic -->
+    <input id="username" type="hidden" autocomplete="name" />
   </div>
 
   <div class="tabs">
