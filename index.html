@@ -528,9 +528,8 @@
     <label>Your name<span class="spinner" id="nameSpin" style="display:none"></span></label>
     <select id="nameSelect">
       <option value="" disabled selected>Select your name</option>
-      <option value="__new__">+ Add new name</option>
     </select>
-    <input id="username" placeholder="Type your new name" autocomplete="name" style="display:none" />
+    <input id="username" placeholder="…or type your name" autocomplete="name" />
   </div>
 
   <div class="tabs">
@@ -955,18 +954,15 @@ function populateNames(){
   const placeholder=loadingNames?"Loading names…":"Select your name";
   sel.innerHTML =
     '<option value="" disabled'+(saved?'':' selected')+'>'+placeholder+'</option>' +
-    names.map(n=>`<option value="${n.replace(/"/g,"&quot;")}"${n===saved?" selected":""}>${n}</option>`).join("") +
-    '<option value="__new__">+ Add new name</option>';
+    names.map(n=>`<option value="${n.replace(/"/g,"&quot;")}"${n===saved?" selected":""}>${n}</option>`).join("");
   const spin=$("#nameSpin"); if(spin) spin.style.display=loadingNames?"inline-block":"none";
   const inp=$("#username");
-  if(saved && names.includes(saved)){ inp.style.display="none"; inp.value=saved; }
+  if(saved){ inp.value=saved; }
 }
 function onNameSelect(){
   const sel=$("#nameSelect"), inp=$("#username");
-  if(sel.value==="__new__"){
-    inp.style.display=""; inp.value=""; inp.focus();
-  } else {
-    inp.style.display="none"; inp.value=sel.value;
+  if(sel.value){
+    inp.value=sel.value;
     localStorage.setItem("wc_name", sel.value);
   }
 }
