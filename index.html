@@ -35,16 +35,17 @@
   };
 
   // ===== SCORING =====
-  // Group stage: correct winner = 1 pt
-  // Knockout base: winner AND exact score both correct = 3 pts
-  // Multipliers applied to the knockout base:
+  // Group stage: correct winner = 1 pt.
+  // Knockout ("ko"): correct winner = `win` pts; correct winner + exact score = `exact` pts;
+  //   correct winner + predicted penalties when the match actually goes to penalties = `exact` pts.
+  //   (when you predict penalties you don't enter a score). All scaled by `mult`.
   const STAGE = {
     group:   { type: "winner", base: 1,  mult: 1, label: "Group Stage" },
-    r32:     { type: "score",  base: 3,  mult: 1, label: "Round of 32" },
-    r16:     { type: "score",  base: 3,  mult: 1, label: "Round of 16" },
-    quarter: { type: "score",  base: 3,  mult: 2, label: "Quarter-final" },
-    semi:    { type: "score",  base: 3,  mult: 3, label: "Semi-final" },
-    final:   { type: "score",  base: 3,  mult: 4, label: "Final" }
+    r32:     { type: "ko", win: 1, exact: 3, mult: 1, label: "Round of 32" },
+    r16:     { type: "ko", win: 1, exact: 3, mult: 1, label: "Round of 16" },
+    quarter: { type: "ko", win: 1, exact: 3, mult: 2, label: "Quarter-final" },
+    semi:    { type: "ko", win: 1, exact: 3, mult: 3, label: "Semi-final" },
+    final:   { type: "ko", win: 1, exact: 3, mult: 4, label: "Final" }
   };
 
   // ===== MATCHES =====
@@ -204,7 +205,27 @@
     { id: "m71", stage: "group", group: "J", locked: true, home: "Algeria", away: "Austria",
       homeFlag: "\ud83c\udde9\ud83c\uddff", awayFlag: "\ud83c\udde6\ud83c\uddf9", kickoff: "2026-06-28T06:00:00+04:00" },
     { id: "m72", stage: "group", group: "J", locked: true, home: "Jordan", away: "Argentina",
-      homeFlag: "\ud83c\uddef\ud83c\uddf4", awayFlag: "\ud83c\udde6\ud83c\uddf7", kickoff: "2026-06-28T06:00:00+04:00" }
+      homeFlag: "\ud83c\uddef\ud83c\uddf4", awayFlag: "\ud83c\udde6\ud83c\uddf7", kickoff: "2026-06-28T06:00:00+04:00" },
+
+    // ===== Round of 32 \u2014 first 8 confirmed matchups, Oman time (+04:00). =====
+    // ko scoring: correct winner = 1 pt; winner + exact score OR winner + penalties = 3 pts.
+    // Not locked \u2192 the batch shares one lock 15 min before the first kickoff (South Africa v Canada).
+    { id: "m73", stage: "r32", locked: false, home: "South Africa", away: "Canada",
+      homeFlag: "\ud83c\uddff\ud83c\udde6", awayFlag: "\ud83c\udde8\ud83c\udde6", kickoff: "2026-06-28T23:00:00+04:00" },
+    { id: "m74", stage: "r32", locked: false, home: "Brazil", away: "Japan",
+      homeFlag: "\ud83c\udde7\ud83c\uddf7", awayFlag: "\ud83c\uddef\ud83c\uddf5", kickoff: "2026-06-29T21:00:00+04:00" },
+    { id: "m75", stage: "r32", locked: false, home: "Germany", away: "Paraguay",
+      homeFlag: "\ud83c\udde9\ud83c\uddea", awayFlag: "\ud83c\uddf5\ud83c\uddfe", kickoff: "2026-06-30T00:30:00+04:00" },
+    { id: "m76", stage: "r32", locked: false, home: "Netherlands", away: "Morocco",
+      homeFlag: "\ud83c\uddf3\ud83c\uddf1", awayFlag: "\ud83c\uddf2\ud83c\udde6", kickoff: "2026-06-30T05:00:00+04:00" },
+    { id: "m77", stage: "r32", locked: false, home: "Ivory Coast", away: "Norway",
+      homeFlag: "\ud83c\udde8\ud83c\uddee", awayFlag: "\ud83c\uddf3\ud83c\uddf4", kickoff: "2026-06-30T21:00:00+04:00" },
+    { id: "m78", stage: "r32", locked: false, home: "USA", away: "Bosnia and Herzegovina",
+      homeFlag: "\ud83c\uddfa\ud83c\uddf8", awayFlag: "\ud83c\udde7\ud83c\udde6", kickoff: "2026-07-02T04:00:00+04:00" },
+    { id: "m79", stage: "r32", locked: false, home: "Australia", away: "Egypt",
+      homeFlag: "\ud83c\udde6\ud83c\uddfa", awayFlag: "\ud83c\uddea\ud83c\uddec", kickoff: "2026-07-03T22:00:00+04:00" },
+    { id: "m80", stage: "r32", locked: false, home: "Argentina", away: "Cabo Verde",
+      homeFlag: "\ud83c\udde6\ud83c\uddf7", awayFlag: "\ud83c\udde8\ud83c\uddfb", kickoff: "2026-07-04T02:00:00+04:00" }
   ];
 </script>
 
@@ -352,6 +373,15 @@
   }
   .score-row input:focus{outline:2px solid var(--green);border-color:transparent}
   .score-row .x{color:var(--muted);font-family:'DM Mono',monospace}
+  .score-row.dim{opacity:.35}
+  .penbtn{display:block;margin:0 auto 14px;background:transparent;border:1px solid var(--line);
+    color:var(--muted);font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:13px;
+    letter-spacing:.04em;padding:7px 16px;border-radius:999px;cursor:pointer;text-transform:uppercase}
+  .penbtn:hover{border-color:var(--magenta);color:var(--ink)}
+  .penbtn.on{background:rgba(255,45,120,.14);border-color:var(--magenta);color:var(--magenta)}
+  .card.locked .penbtn{pointer-events:none;opacity:.5}
+  .admin-card select{background:var(--pitch);border:1px solid var(--line);color:var(--ink);
+    padding:8px;border-radius:8px;font-family:'Archivo Narrow',sans-serif;font-weight:600}
 
   .countdown{
     font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.08em;
@@ -613,6 +643,47 @@ let dataReady = false;     // false until first data (cache or network) is in ->
 const $ = s => document.querySelector(s);
 const kickoffMs = m => new Date(m.kickoff).getTime();
 
+/* ---------------- scoring helpers ---------------- */
+// Results store hs/as. For a knockout that went to penalties the regulation score is
+// level, so the pens winner is encoded by adding 100 to the winning side's score
+// (e.g. 1-1, home wins on pens -> {hs:101, as:1}). Decode that back here.
+function decodeResult(res, m){
+  let hs=+res.hs, as=+res.as, pens=false, winner;
+  if(hs>=100){ hs-=100; pens=true; winner=m.home; }
+  else if(as>=100){ as-=100; pens=true; winner=m.away; }
+  else winner = hs>as ? m.home : as>hs ? m.away : "Draw";
+  return { hs, as, pens, winner };
+}
+// A prediction's knockout intent. Penalties are stored as hs=as=-1 (no score entered).
+function predKO(p){
+  const pens = (+p.home_score===-1);
+  const hasScore = !pens && p.home_score!=null && p.home_score!=="" && +p.home_score>=0;
+  return { pens, hasScore, hs:+p.home_score, as:+p.away_score, winner:p.winner };
+}
+// Grade one prediction against a result -> {hit, pts, realWinner, tier}.
+function gradePrediction(m, p, res){
+  const cfg=STAGE[m.stage];
+  if(cfg.type==="winner"){
+    const realWinner = res.hs>res.as?m.home:res.as>res.hs?m.away:"Draw";
+    const hit = p.winner===realWinner;
+    return { hit, pts: hit?cfg.base*cfg.mult:0, realWinner, tier: hit?"winner":null };
+  }
+  const R=decodeResult(res,m), PK=predKO(p);
+  let pts=0, tier=null;
+  if(PK.winner===R.winner){
+    if(PK.pens && R.pens){ pts=cfg.exact*cfg.mult; tier="pens"; }
+    else if(PK.hasScore && PK.hs===R.hs && PK.as===R.as){ pts=cfg.exact*cfg.mult; tier="exact"; }
+    else { pts=cfg.win*cfg.mult; tier="winner"; }
+  }
+  return { hit: pts>0, pts, realWinner:R.winner, tier };
+}
+// How a player's pick reads in lists ("Brazil · 2–1", "Brazil · pens", "Brazil").
+function predLabel(p){
+  if(+p.home_score===-1) return `${p.winner} · pens`;
+  if(p.home_score!=null && p.home_score!=="") return `${p.winner} · ${p.home_score}–${p.away_score}`;
+  return p.winner;
+}
+
 // SHARED LOCK: the whole set locks 15 min before the EARLIEST kickoff in the batch.
 // After that single moment, all picks freeze and everyone's predictions become visible.
 const earliestKickoff = () => { const up=MATCHES.filter(m=>!results[m.id] && !m.locked); return Math.min(...(up.length?up:MATCHES).map(kickoffMs)); };
@@ -663,7 +734,7 @@ function renderMatches(){
     if(m.stage!==lastStage){
       lastStage=m.stage;
       const pts = cfg.type==="winner" ? `${cfg.base} pt · winner`
-                 : `${cfg.base*cfg.mult} pts · winner + exact score`;
+                 : `${cfg.win*cfg.mult} pt · winner — ${cfg.exact*cfg.mult} pts · winner + score/pens`;
       const sl=document.createElement("div");sl.className="stage-label";
       sl.innerHTML=`<span>${cfg.label}</span><span class="pts">${pts}</span>`;
       wrap.appendChild(sl);
@@ -687,12 +758,13 @@ function renderMatches(){
         </div>
       </div>
       ${cfg.type==="winner"?`<div class="team draw ${p.winner==="Draw"?"pick":""} ${locked?"locked-opt":""}" data-pick="draw">${pollBar(m,"draw")}<span class="nm">Draw</span></div>`:""}
-      ${cfg.type==="score"?`
-      <div class="score-row on">
-        <input type="number" min="0" inputmode="numeric" data-s="h" value="${p.hs??""}" placeholder="0" aria-label="${m.home} score"/>
+      ${cfg.type==="ko"?`
+      <div class="score-row on ${p.pens?"dim":""}">
+        <input type="number" min="0" inputmode="numeric" data-s="h" value="${p.pens?"":(p.hs??"")}" placeholder="0" aria-label="${m.home} score" ${p.pens?"disabled":""}/>
         <span class="x">:</span>
-        <input type="number" min="0" inputmode="numeric" data-s="a" value="${p.as??""}" placeholder="0" aria-label="${m.away} score"/>
-      </div>`:""}
+        <input type="number" min="0" inputmode="numeric" data-s="a" value="${p.pens?"":(p.as??"")}" placeholder="0" aria-label="${m.away} score" ${p.pens?"disabled":""}/>
+      </div>
+      <button type="button" class="penbtn ${p.pens?"on":""}" data-pen>${p.pens?"⚽ Penalties":"Predict penalties"}</button>`:""}
       <div class="countdown ${locked?"locked":""}" data-cd="${m.id}">
         <span class="dot"></span><span class="t">${locked?"Locked":fmtLeft(lockMs(m)-Date.now())}</span>
         <span class="ko">\ud83d\udd53 ${omanTime(m)} (Oman)</span>
@@ -716,9 +788,18 @@ function renderMatches(){
     card.querySelectorAll("input[data-s]").forEach(inp=>{
       inp.addEventListener("input",()=>{
         picks[m.id]=picks[m.id]||{};
+        picks[m.id].pens=false;
         if(inp.dataset.s==="h") picks[m.id].hs=inp.value;
         else picks[m.id].as=inp.value;
       });
+    });
+    const pen=card.querySelector("[data-pen]");
+    if(pen) pen.addEventListener("click",()=>{
+      if(locked) return;
+      picks[m.id]=picks[m.id]||{};
+      picks[m.id].pens=!picks[m.id].pens;
+      if(picks[m.id].pens){ picks[m.id].hs=""; picks[m.id].as=""; }   // pens = no score
+      renderMatches();   // re-render to reflect disabled inputs / button state
     });
 
     if(locked) fillReveal(card,m);
@@ -731,15 +812,8 @@ function fillReveal(card,m){
   if(!rows.length){box.innerHTML=`<div class="pred"><span class="what">No predictions were submitted.</span></div>`;return}
   const res=results[m.id];
   box.innerHTML=rows.map(r=>{
-    const what = r.home_score!=null ? `${r.winner} · ${r.home_score}–${r.away_score}` : r.winner;
-    let hit=false;
-    if(res){
-      const cfg=STAGE[m.stage];
-      const realWinner = res.hs>res.as?m.home:res.as>res.hs?m.away:"Draw";
-      if(cfg.type==="winner") hit = r.winner===realWinner;
-      else hit = r.winner===realWinner && +r.home_score===res.hs && +r.away_score===res.as;
-    }
-    return `<div class="pred ${hit?"hit":""}"><span class="who">${r.username}</span><span class="what">${what}</span></div>`;
+    const hit = res ? gradePrediction(m,r,res).hit : false;
+    return `<div class="pred ${hit?"hit":""}"><span class="who">${r.username}</span><span class="what">${predLabel(r)}</span></div>`;
   }).join("");
 }
 
@@ -776,9 +850,12 @@ async function savePicks(){
     const cfg=STAGE[m.stage];
     const row={ username:name, match_id:m.id, winner:p.winner,
                 home_score:null, away_score:null };
-    if(cfg.type==="score"){
-      if(p.hs===""||p.as===""||p.hs==null||p.as==null){ toast(`Add the score for ${m.home} v ${m.away}`); return; }
-      row.home_score=+p.hs; row.away_score=+p.as;
+    if(cfg.type==="ko"){
+      if(p.pens){
+        row.home_score=-1; row.away_score=-1;        // penalties bet -> no score (sentinel)
+      } else if(p.hs!==""&&p.hs!=null&&p.as!==""&&p.as!=null){
+        row.home_score=+p.hs; row.away_score=+p.as;  // exact-score bet
+      }                                              // else winner-only bet (scores stay null)
     }
     rows.push(row);
   }
@@ -879,8 +956,14 @@ function applyLiveResults(){
   // live or not yet started is removed from results — no early points, stays out of
   // History until the final whistle.
   Object.entries(live).forEach(([id,s])=>{
-    if(s.finished) results[id]={hs:s.hs, as:s.as};   // FT -> official result
-    else delete results[id];                          // live / not started -> not completed
+    const m=MATCHES.find(x=>x.id===id);
+    const ko = m && STAGE[m.stage] && STAGE[m.stage].type==="ko";
+    const r=results[id];
+    if(r && (r.hs>=100 || r.as>=100)) return;   // admin-entered penalties result is authoritative
+    // A knockout that finishes level went to penalties; the API can't say who won,
+    // so leave it for the admin to enter (don't auto-store an ambiguous draw).
+    if(s.finished && !(ko && s.hs===s.as)) results[id]={hs:s.hs, as:s.as};   // FT
+    else delete results[id];                                                  // not completed
   });
 }
 async function loadGroups(){
@@ -989,24 +1072,21 @@ function renderHistory(){
   if(!played.length){ box.innerHTML = dataReady ? `<div class="empty">No finished matches yet. Played matches appear here with results.</div>` : LOADING("Loading matches…"); return; }
   box.innerHTML=played.map(m=>{
     const res=results[m.id];
-    const realWinner = res.hs>res.as?m.home:res.as>res.hs?m.away:"Draw";
+    const R=decodeResult(res,m);
+    const realWinner=R.winner;
     const rows=allPreds.filter(p=>p.match_id===m.id);
-    const cfg=STAGE[m.stage];
     const timeline = goalTimeline(m);   // scorers + minute, shared with live cards
     const preds=rows.map(r=>{
-      let hit=false;
-      if(cfg.type==="winner") hit=r.winner===realWinner;
-      else hit=r.winner===realWinner && +r.home_score===res.hs && +r.away_score===res.as;
-      const what=r.home_score!=null?`${r.winner} \u00b7 ${r.home_score}\u2013${r.away_score}`:r.winner;
-      return `<div class="pred ${hit?"hit":""}"><span class="who">${r.username}</span><span class="what">${what}</span></div>`;
+      const hit=gradePrediction(m,r,res).hit;
+      return `<div class="pred ${hit?"hit":""}"><span class="who">${r.username}</span><span class="what">${predLabel(r)}</span></div>`;
     }).join("") || `<div class="pred"><span class="what">No predictions.</span></div>`;
     return `<div class="card">
       <div class="teams">
         <div class="team ${realWinner===m.home?"pick":""}"><span class="flag">${m.homeFlag||"\u26bd"}</span><span class="nm">${m.home}</span></div>
-        <div class="vs"><span class="sc">${res.hs}\u2013${res.as}</span>${matchStatus(m)}</div>
+        <div class="vs"><span class="sc">${R.hs}\u2013${R.as}</span>${matchStatus(m)}</div>
         <div class="team ${realWinner===m.away?"pick":""}"><span class="flag">${m.awayFlag||"\u26bd"}</span><span class="nm">${m.away}</span></div>
       </div>
-      <div class="result-tag">Final \u00b7 ${realWinner==="Draw"?"Draw":realWinner+" win"}</div>
+      <div class="result-tag">Final \u00b7 ${realWinner==="Draw"?"Draw":realWinner+" win"}${R.pens?" (pens)":""}</div>
       ${timeline}
       <div class="reveal on"><h4>Everyone\u2019s picks</h4><div>${preds}</div></div>
     </div>`;
@@ -1020,13 +1100,9 @@ function userResults(username){
   MATCHES.filter(m=>results[m.id]).sort((a,b)=>kickoffMs(a)-kickoffMs(b)).forEach(m=>{
     const p=allPreds.find(x=>x.match_id===m.id && x.username===username);
     if(!p) return;
-    const res=results[m.id], cfg=STAGE[m.stage];
-    const realWinner=res.hs>res.as?m.home:res.as>res.hs?m.away:"Draw";
-    let hit;
-    if(cfg.type==="winner") hit=p.winner===realWinner;
-    else hit=p.winner===realWinner && +p.home_score===res.hs && +p.away_score===res.as;
-    const what=p.home_score!=null?`${p.winner} \u00b7 ${p.home_score}\u2013${p.away_score}`:p.winner;
-    out.push({m,res,realWinner,hit,what,pts:hit?cfg.base*cfg.mult:0});
+    const res=results[m.id];
+    const g=gradePrediction(m,p,res);
+    out.push({m,res,realWinner:g.realWinner,hit:g.hit,what:predLabel(p),pts:g.pts});
   });
   return out;
 }
@@ -1041,12 +1117,7 @@ function computeBoard(){
   allPreds.forEach(p=>{
     const m=MATCHES.find(x=>x.id===p.match_id); if(!m) return;
     const res=results[p.match_id]; if(!res) return;
-    const cfg=STAGE[m.stage];
-    const realWinner = res.hs>res.as?m.home:res.as>res.hs?m.away:"Draw";
-    let pts=0;
-    if(cfg.type==="winner"){ if(p.winner===realWinner) pts=cfg.base*cfg.mult; }
-    else { if(p.winner===realWinner && +p.home_score===res.hs && +p.away_score===res.as) pts=cfg.base*cfg.mult; }
-    totals[p.username]=(totals[p.username]||0)+pts;
+    totals[p.username]=(totals[p.username]||0)+gradePrediction(m,p,res).pts;
   });
   return Object.entries(totals).sort((a,b)=>b[1]-a[1]);
 }
@@ -1109,15 +1180,22 @@ function renderAdmin(){
   const wrap=$("#adminMatches");
   const sorted=[...MATCHES].sort((a,b)=>stageOrder(a.stage)-stageOrder(b.stage)||kickoffMs(a)-kickoffMs(b));
   wrap.innerHTML=sorted.map(m=>{
-    const r=results[m.id]||{};
+    const raw=results[m.id], cfg=STAGE[m.stage], ko=cfg.type==="ko";
+    const R = raw ? decodeResult(raw,m) : null;
+    const penSel = ko ? `<select data-pen-win title="Penalties winner">
+        <option value="">— pens —</option>
+        <option value="home"${R&&R.pens&&R.winner===m.home?" selected":""}>${m.home} on pens</option>
+        <option value="away"${R&&R.pens&&R.winner===m.away?" selected":""}>${m.away} on pens</option>
+      </select>` : "";
     return `<div class="admin-card" data-id="${m.id}">
-      <div class="mt">${m.homeFlag||""} ${m.home} v ${m.away} ${m.awayFlag||""} <span style="color:var(--muted);font-size:12px">(${STAGE[m.stage].label})</span></div>
+      <div class="mt">${m.homeFlag||""} ${m.home} v ${m.away} ${m.awayFlag||""} <span style="color:var(--muted);font-size:12px">(${cfg.label})</span></div>
       <div class="row">
-        <input type="number" min="0" data-r="h" value="${r.hs??""}" placeholder="0"/>
+        <input type="number" min="0" data-r="h" value="${R?R.hs:""}" placeholder="0"/>
         <span style="color:var(--muted)">:</span>
-        <input type="number" min="0" data-r="a" value="${r.as??""}" placeholder="0"/>
+        <input type="number" min="0" data-r="a" value="${R?R.as:""}" placeholder="0"/>
+        ${penSel}
         <button data-save>Save result</button>
-        ${r.hs!=null?`<span style="color:var(--gold);font-family:'DM Mono';font-size:12px">saved</span>`:""}
+        ${raw?`<span style="color:var(--gold);font-family:'DM Mono';font-size:12px">saved${R&&R.pens?" (pens)":""}</span>`:""}
       </div>
     </div>`;
   }).join("");
@@ -1126,8 +1204,12 @@ function renderAdmin(){
       const id=card.dataset.id;
       const hs=card.querySelector("[data-r=h]").value, as=card.querySelector("[data-r=a]").value;
       if(hs===""||as===""){ toast("Enter both scores"); return; }
+      const penEl=card.querySelector("[data-pen-win]"), penWin=penEl?penEl.value:"";
+      // Penalties: encode the winner by +100 on their score (decoded everywhere via decodeResult).
+      let H=+hs, A=+as;
+      if(penWin==="home") H=+hs+100; else if(penWin==="away") A=+as+100;
       const { error } = await sb.from("results")
-        .upsert([{match_id:id,home_score:+hs,away_score:+as}],{onConflict:"match_id"});
+        .upsert([{match_id:id,home_score:H,away_score:A}],{onConflict:"match_id"});
       if(error){ toast("Failed"); console.error(error); return; }
       toast("Result saved ✓"); await loadData(); renderAdmin(); renderBoard();
     });
@@ -1141,12 +1223,13 @@ function openUserHistory(name){
   const hits=rows.filter(r=>r.hit).length;
   const acc=rows.length?Math.round(hits/rows.length*100):0;
   $("#uTitle").innerHTML=`${name} <span class="usub">${hits}/${rows.length} correct \u00b7 ${acc}% \u00b7 ${total} pts</span>`;
-  $("#uBody").innerHTML = rows.length ? rows.map(r=>`
-    <div class="urow ${r.hit?'h':'m'}">
+  $("#uBody").innerHTML = rows.length ? rows.map(r=>{
+    const R=decodeResult(r.res,r.m);
+    return `<div class="urow ${r.hit?'h':'m'}">
       <span class="ufd">${r.hit?'\u2713':'\u2717'}</span>
-      <span class="umatch">${r.m.home} ${r.res.hs}\u2013${r.res.as} ${r.m.away}</span>
+      <span class="umatch">${r.m.home} ${R.hs}\u2013${R.as} ${r.m.away}${R.pens?" (pens)":""}</span>
       <span class="upick">${r.what}${r.pts?` <b>+${r.pts}</b>`:''}</span>
-    </div>`).join('') : `<div class="empty">No graded predictions yet.</div>`;
+    </div>`;}).join('') : `<div class="empty">No graded predictions yet.</div>`;
   $("#userModal").classList.add("on");
 }
 $("#uClose").addEventListener("click",()=>$("#userModal").classList.remove("on"));
