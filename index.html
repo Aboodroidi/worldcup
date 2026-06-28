@@ -486,9 +486,10 @@
 
   /* form dots in leaderboard */
   .form{display:inline-flex;gap:3px;margin-right:8px;vertical-align:middle}
-  .fd{width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#06140c}
+  .fd{position:relative;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#06140c}
   .fd.h{background:var(--green)}
   .fd.m{background:var(--magenta);color:#fff}
+  .form .fire{position:absolute;top:-7px;right:-7px;font-size:12px;line-height:1;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
   .lb-row{cursor:pointer}
   .lb-row:hover{background:rgba(31,214,95,.06)}
   /* user history modal */
@@ -1106,14 +1107,17 @@ function userResults(username){
     if(!p) return;
     const res=results[m.id];
     const g=gradePrediction(m,p,res);
-    out.push({m,res,realWinner:g.realWinner,hit:g.hit,what:predLabel(p),pts:g.pts});
+    out.push({m,res,realWinner:g.realWinner,hit:g.hit,tier:g.tier,what:predLabel(p),pts:g.pts});
   });
   return out;
 }
 function formDots(username){
   const last=userResults(username).slice(-5);
   if(!last.length) return '';
-  return '<span class="form">'+last.map(r=>`<span class="fd ${r.hit?'h':'m'}">${r.hit?'\u2713':'\u2717'}</span>`).join('')+'</span>';
+  return '<span class="form">'+last.map(r=>{
+    const fire = (r.tier==="exact"||r.tier==="pens") ? '<span class="fire">\ud83d\udd25</span>' : "";  // nailed winner + score/pens
+    return `<span class="fd ${r.hit?'h':'m'}">${r.hit?'\u2713':'\u2717'}${fire}</span>`;
+  }).join('')+'</span>';
 }
 
 function computeBoard(){
