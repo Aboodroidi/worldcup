@@ -451,6 +451,7 @@
   .pred .who{font-weight:700;font-family:'Archivo Narrow',sans-serif}
   .pred .what{font-family:'DM Mono',monospace;color:var(--muted)}
   .pred.hit .what{color:var(--green)}
+  .pred.part .what{color:var(--gold)}   /* correct winner only (knockout, no exact score) */
 
   /* ---------- BUTTONS ---------- */
   .save{
@@ -671,6 +672,14 @@ function gradePrediction(m, p, res){
   }
   return { hit: pts>0, pts, realWinner:R.winner, tier };
 }
+// Colour class for a graded pick: "hit" (green, exact/full), "part" (amber, knockout
+// winner-only correct), or "" (grey, wrong).
+function predClass(m,p,res){
+  const g=gradePrediction(m,p,res);
+  if(!g.hit) return "";
+  if(STAGE[m.stage].type==="winner") return "hit";        // group: correct winner is the max
+  return g.tier==="winner" ? "part" : "hit";              // knockout: winner-only = partial
+}
 // How a player's pick reads in lists ("Brazil · 2–1", "Brazil · pens", "Brazil").
 function predLabel(p){
   if(+p.home_score===-1) return `${p.winner} · pens`;
@@ -806,8 +815,8 @@ function fillReveal(card,m){
   if(!rows.length){box.innerHTML=`<div class="pred"><span class="what">No predictions were submitted.</span></div>`;return}
   const res=results[m.id];
   box.innerHTML=rows.map(r=>{
-    const hit = res ? gradePrediction(m,r,res).hit : false;
-    return `<div class="pred ${hit?"hit":""}"><span class="who">${r.username}</span><span class="what">${predLabel(r)}</span></div>`;
+    const cls = res ? predClass(m,r,res) : "";
+    return `<div class="pred ${cls}"><span class="who">${r.username}</span><span class="what">${predLabel(r)}</span></div>`;
   }).join("");
 }
 
@@ -1073,8 +1082,7 @@ function renderHistory(){
     const rows=allPreds.filter(p=>p.match_id===m.id);
     const timeline = goalTimeline(m);   // scorers + minute, shared with live cards
     const preds=rows.map(r=>{
-      const hit=gradePrediction(m,r,res).hit;
-      return `<div class="pred ${hit?"hit":""}"><span class="who">${r.username}</span><span class="what">${predLabel(r)}</span></div>`;
+      return `<div class="pred ${predClass(m,r,res)}"><span class="who">${r.username}</span><span class="what">${predLabel(r)}</span></div>`;
     }).join("") || `<div class="pred"><span class="what">No predictions.</span></div>`;
     return `<div class="card">
       <div class="teams">
