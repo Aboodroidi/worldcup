@@ -849,7 +849,9 @@ async function savePicks(){
         row.home_score=-1; row.away_score=-1;        // penalties bet -> no score (sentinel)
       } else if(p.hs!==""&&p.hs!=null&&p.as!==""&&p.as!=null){
         row.home_score=+p.hs; row.away_score=+p.as;  // exact-score bet
-      }                                              // else winner-only bet (scores stay null)
+      } else {                                       // knockout: a score or pens is required
+        toast(`Add a score, or pick penalties, for ${m.home} v ${m.away}`); return;
+      }
     }
     rows.push(row);
   }
