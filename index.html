@@ -807,7 +807,7 @@ function renderMatches(){
         </div>
       </div>
       ${cfg.type==="winner"?`<div class="team draw ${p.winner==="Draw"?"pick":""} ${locked?"locked-opt":""}" data-pick="draw">${pollBar(m,"draw")}<span class="nm">Draw</span></div>`:""}
-      ${cfg.type==="ko"?`
+      ${cfg.type==="ko" && !locked?`
       <div class="score-row on ${p.pens?"dim":""}">
         ${scoreSelect("h", p.pens?"":p.hs, p.pens, m.home+" score")}
         <span class="x">:</span>
