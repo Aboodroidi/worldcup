@@ -596,7 +596,7 @@
 
   <div class="tabs">
     <div class="tab active" data-view="play">Predict</div>
-    <div class="tab" data-view="groups">Groups</div>
+    <div class="tab" data-view="groups">Matches</div>
     <div class="tab" data-view="board">Leaderboard</div>
     <div class="tab" data-view="history">History</div>
   </div>
@@ -608,8 +608,7 @@
 
   <!-- GROUPS VIEW -->
   <div id="groupsView" style="display:none">
-    <div id="groups"><div class="empty">Loading group standings…</div></div>
-    <div id="bracket"></div>
+    <div id="bracket"><div class="empty">Loading matches…</div></div>
   </div>
 
   <!-- BOARD VIEW -->
@@ -1275,7 +1274,7 @@ function renderGroups(){
 /* ---------------- knockout bracket (Groups tab) ---------------- */
 function renderBracket(){
   const box=$("#bracket"); if(!box) return;
-  if(!bracket.length){ box.innerHTML=""; return; }
+  if(!bracket.length){ box.innerHTML = dataReady ? `<div class="empty">Matches unavailable right now.</div>` : LOADING("Loading matches…"); return; }
   const rounds=[["r32","Round of 32"],["r16","Round of 16"],["qf","Quarter-finals"],
                 ["sf","Semi-finals"],["third","Third place"],["final","Final"]];
   let html=`<div class="br-title">Knockouts — road to the final</div>`;
@@ -1360,7 +1359,7 @@ function show(view){
   $("#historyView").style.display = view==="history"?"block":"none";
   $("#saveBar").style.display = view==="play"?"block":"none";
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===view));
-  if(view==="groups"){ renderGroups(); renderBracket(); }
+  if(view==="groups") renderBracket();
   if(view==="board") renderBoard();
   if(view==="history") renderHistory();
 }
@@ -1400,7 +1399,7 @@ function hydrateFromCache(){
 /* ---------------- live score polling ---------------- */
 let lastLiveSig = "";
 function renderAll(){
-  renderMatches(); renderParticipants(); renderHistory(); renderBoard(); renderGroups(); renderBracket(); populateNames();
+  renderMatches(); renderParticipants(); renderHistory(); renderBoard(); renderBracket(); populateNames();
 }
 async function pollLive(){
   await loadData();   // refresh predictions + results + live scores + standings
