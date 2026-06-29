@@ -690,7 +690,9 @@ function predLabel(p){
 
 // SHARED LOCK: the whole set locks 15 min before the EARLIEST kickoff in the batch.
 // After that single moment, all picks freeze and everyone's predictions become visible.
-const earliestKickoff = () => { const up=MATCHES.filter(m=>!results[m.id] && !m.locked); return Math.min(...(up.length?up:MATCHES).map(kickoffMs)); };
+// Anchor on every open (unlocked) game — including finished ones — so the lock stays
+// put once the first game kicks off, instead of jumping forward as games complete.
+const earliestKickoff = () => { const up=MATCHES.filter(m=>!m.locked); return Math.min(...(up.length?up:MATCHES).map(kickoffMs)); };
 const setLockMs = () => earliestKickoff() - LOCK_MINUTES_BEFORE*60000;
 const lockMs = m => setLockMs();          // same lock time for every match
 const isLocked = m => m.locked === true || Date.now() >= setLockMs();
