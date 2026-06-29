@@ -379,8 +379,16 @@
     background:var(--pitch);border:1px solid var(--line);color:var(--ink);padding:10px;border-radius:10px;
   }
   .score-row input:focus{outline:2px solid var(--green);border-color:transparent}
+  .score-row .scoresel{
+    width:64px;text-align:center;text-align-last:center;font-family:'DM Mono',monospace;font-size:22px;font-weight:500;
+    background:var(--pitch);border:1px solid var(--line);color:var(--ink);padding:10px 8px;border-radius:10px;cursor:pointer;
+    -webkit-appearance:none;appearance:none;
+  }
+  .score-row .scoresel:focus{outline:2px solid var(--green);border-color:transparent}
   .score-row .x{color:var(--muted);font-family:'DM Mono',monospace}
   .score-row.dim{opacity:.35}
+  .score-hint{text-align:center;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);
+    letter-spacing:.08em;text-transform:uppercase;margin:-6px 0 12px}
   .penbtn{display:block;margin:0 auto 14px;background:transparent;border:1px solid var(--line);
     color:var(--muted);font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:13px;
     letter-spacing:.04em;padding:7px 16px;border-radius:999px;cursor:pointer;text-transform:uppercase}
@@ -401,7 +409,7 @@
   .countdown.locked{color:var(--magenta)}
   .countdown.locked .dot{background:var(--magenta);animation:none}
 
-  .card.locked .team,.card.locked .score-row input{pointer-events:none;opacity:.85}
+  .card.locked .team,.card.locked .score-row input,.card.locked .score-row .scoresel{pointer-events:none;opacity:.85}
   .card.locked .team:not(.pick){opacity:.4}
 
   .result-tag{
@@ -743,6 +751,13 @@ function pollBar(m,key){
   return `<span class="poll ${lead?"lead":""}"><span class="pbar" style="width:${p}%"></span><span class="ptxt">${p}% \u00b7 ${n}</span></span>`;
 }
 
+// Score dropdown (0–9) for knockout picks; "–" is the empty option.
+function scoreSelect(side,val,disabled,label){
+  const v=(val==null)?"":(""+val);
+  let o=`<option value=""${v===""?" selected":""}>–</option>`;
+  for(let i=0;i<=9;i++) o+=`<option value="${i}"${v===(""+i)?" selected":""}>${i}</option>`;
+  return `<select class="scoresel" data-s="${side}" aria-label="${label}"${disabled?" disabled":""}>${o}</select>`;
+}
 function renderMatches(){
   const wrap = $("#matches"); wrap.innerHTML="";
   const sorted=[...MATCHES].filter(m=>!results[m.id]).sort((a,b)=>stageOrder(a.stage)-stageOrder(b.stage)||kickoffMs(a)-kickoffMs(b));
@@ -779,10 +794,11 @@ function renderMatches(){
       ${cfg.type==="winner"?`<div class="team draw ${p.winner==="Draw"?"pick":""} ${locked?"locked-opt":""}" data-pick="draw">${pollBar(m,"draw")}<span class="nm">Draw</span></div>`:""}
       ${cfg.type==="ko"?`
       <div class="score-row on ${p.pens?"dim":""}">
-        <input type="number" min="0" inputmode="numeric" data-s="h" value="${p.pens?"":(p.hs??"")}" placeholder="0" aria-label="${m.home} score" ${p.pens?"disabled":""}/>
+        ${scoreSelect("h", p.pens?"":p.hs, p.pens, m.home+" score")}
         <span class="x">:</span>
-        <input type="number" min="0" inputmode="numeric" data-s="a" value="${p.pens?"":(p.as??"")}" placeholder="0" aria-label="${m.away} score" ${p.pens?"disabled":""}/>
+        ${scoreSelect("a", p.pens?"":p.as, p.pens, m.away+" score")}
       </div>
+      ${(!p.pens && (p.hs==null||p.hs==="") && (p.as==null||p.as===""))?`<div class="score-hint">Enter score</div>`:""}
       <button type="button" class="penbtn ${p.pens?"on":""}" data-pen>${p.pens?"⚽ Penalties":"Predict penalties"}</button>`:""}
       <div class="countdown ${locked?"locked":""}" data-cd="${m.id}">
         <span class="dot"></span><span class="t">${locked?"Locked":fmtLeft(lockMs(m)-Date.now())}</span>
@@ -798,18 +814,32 @@ function renderMatches(){
       t.addEventListener("click",()=>{
         if(locked) return;
         const w = t.dataset.pick==="home"?m.home:(t.dataset.pick==="away"?m.away:"Draw");
-        picks[m.id]=picks[m.id]||{};
-        picks[m.id].winner=w;
-        card.querySelectorAll(".team").forEach(x=>x.classList.remove("pick"));
-        t.classList.add("pick");
+        const p2=picks[m.id]=picks[m.id]||{};
+        p2.winner=w;
+        if(cfg.type==="ko"){
+          // if a decisive score is set but favours the other team, swap it to match the winner
+          if(!p2.pens && p2.hs!==""&&p2.hs!=null && p2.as!==""&&p2.as!=null){
+            const H=+p2.hs, A=+p2.as;
+            if(H!==A && (H>A?m.home:m.away)!==w){ const t2=p2.hs; p2.hs=p2.as; p2.as=t2; }
+          }
+          renderMatches();
+        } else {
+          card.querySelectorAll(".team").forEach(x=>x.classList.remove("pick"));
+          t.classList.add("pick");
+        }
       });
     });
-    card.querySelectorAll("input[data-s]").forEach(inp=>{
-      inp.addEventListener("input",()=>{
-        picks[m.id]=picks[m.id]||{};
-        picks[m.id].pens=false;
-        if(inp.dataset.s==="h") picks[m.id].hs=inp.value;
-        else picks[m.id].as=inp.value;
+    card.querySelectorAll("select[data-s]").forEach(sel=>{
+      sel.addEventListener("change",()=>{
+        const p2=picks[m.id]=picks[m.id]||{};
+        p2.pens=false;
+        if(sel.dataset.s==="h") p2.hs=sel.value; else p2.as=sel.value;
+        // a decisive score sets the winner automatically (keeps score ↔ winner consistent)
+        if(p2.hs!==""&&p2.hs!=null && p2.as!==""&&p2.as!=null){
+          const H=+p2.hs, A=+p2.as;
+          if(H>A) p2.winner=m.home; else if(A>H) p2.winner=m.away;
+        }
+        renderMatches();
       });
     });
     const pen=card.querySelector("[data-pen]");
@@ -873,7 +903,10 @@ async function savePicks(){
       if(p.pens){
         row.home_score=-1; row.away_score=-1;        // penalties bet -> no score (sentinel)
       } else if(p.hs!==""&&p.hs!=null&&p.as!==""&&p.as!=null){
-        row.home_score=+p.hs; row.away_score=+p.as;  // exact-score bet
+        const H=+p.hs, A=+p.as;
+        if(H===A){ toast(`${m.home} v ${m.away}: a knockout can't be a draw — pick penalties or a decisive score`); return; }
+        if((H>A?m.home:m.away)!==p.winner){ toast(`${m.home} v ${m.away}: the score must match your winner (${p.winner})`); return; }
+        row.home_score=H; row.away_score=A;          // exact-score bet (matches winner)
       } else {                                       // knockout: a score or pens is required
         toast(`Add a score, or pick penalties, for ${m.home} v ${m.away}`); return;
       }
