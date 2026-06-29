@@ -456,6 +456,20 @@
   .grp-legend{display:flex;gap:18px;flex-wrap:wrap;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin:2px 2px 16px}
   .grp-legend .lg{display:inline-flex;align-items:center;gap:6px}
   .grp-legend .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+  /* knockout bracket */
+  #bracket{margin-top:8px}
+  .br-title{font-family:'Archivo',sans-serif;font-weight:900;font-size:18px;letter-spacing:.01em;margin:18px 2px 12px}
+  .br-round{margin-bottom:16px}
+  .br-head{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--green);margin:0 2px 8px}
+  .br-match{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.02);border:1px solid var(--line);
+    border-radius:10px;padding:9px 12px;margin-bottom:6px}
+  .br-match .bt{flex:1;display:flex;align-items:center;gap:7px;font-family:'Archivo',sans-serif;font-weight:600;font-size:14px;min-width:0}
+  .br-match .bt:last-child{justify-content:flex-end;text-align:right}
+  .br-match .bf{font-size:17px;line-height:1;flex:none}
+  .br-match .bt.tbc{color:var(--muted);font-family:'DM Mono',monospace;font-weight:500;font-size:12px;letter-spacing:.1em}
+  .br-mid{flex:none;text-align:center;min-width:84px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+  .br-mid .br-score{font-size:16px;font-weight:500;color:var(--ink)}
+  .br-mid .br-time{white-space:nowrap}
   /* loading state (data still fetching) */
   .loading{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--muted);
     font-family:'DM Mono',monospace;font-size:13px;padding:26px 16px}
@@ -595,6 +609,7 @@
   <!-- GROUPS VIEW -->
   <div id="groupsView" style="display:none">
     <div id="groups"><div class="empty">Loading group standings…</div></div>
+    <div id="bracket"></div>
   </div>
 
   <!-- BOARD VIEW -->
@@ -655,6 +670,7 @@ let allPreds = [];         // every player's predictions (from db)
 let live = {};             // matchId -> {hs, as, finished, started, elapsed}  (from live API)
 let groups = [];           // [{name, teams:[{team_id,mp,w,d,l,gf,ga,gd,pts}]}]  (from live API)
 let teamById = {};         // API team_id -> English team name (built from games)
+let bracket = [];          // knockout fixtures (r32..final) from the API, for the bracket view
 let dataReady = false;     // false until first data (cache or network) is in -> show loaders
 
 const $ = s => document.querySelector(s);
@@ -983,13 +999,19 @@ async function loadLiveScores(){
     if(!r.ok) throw new Error("HTTP "+r.status);
     games = (await r.json()).games || [];
   }catch(e){ console.warn("Live scores unavailable:", e); return; }  // keep last known data
-  const idx = {};
+  const idx = {}, KO=["r32","r16","qf","sf","third","final"], brk=[];
   games.forEach(g=>{
     if(g.home_team_id && g.home_team_name_en) teamById[g.home_team_id]=g.home_team_name_en;
     if(g.away_team_id && g.away_team_name_en) teamById[g.away_team_id]=g.away_team_name_en;
+    if(KO.includes(g.type)){
+      brk.push({type:g.type, home:g.home_team_name_en||"", away:g.away_team_name_en||"",
+                date:g.local_date, stadium:g.stadium_id, hs:g.home_score, as:g.away_score,
+                finished:String(g.finished).toUpperCase()==="TRUE"});
+    }
     if(!g.home_team_name_en || !g.away_team_name_en) return;
     idx[normTeam(g.home_team_name_en)+"|"+normTeam(g.away_team_name_en)] = g;
   });
+  bracket = brk;
   const next = {};
   MATCHES.forEach(m=>{
     const g = idx[normTeam(apiName(m.home))+"|"+normTeam(apiName(m.away))];
@@ -1038,6 +1060,25 @@ function teamMeta(id){
   const apiNm = teamById[id] || "";
   const k = normTeam(apiNm);
   return { name: TEAM_DISPLAY[k] || apiNm || "—", flag: TEAM_FLAG[k] || "⚽" };
+}
+// Hours to add to a stadium's local time to get Oman (UTC+4) wall clock, June–July 2026.
+// Mexico cities (UTC-6) +10, Central US (UTC-5) +9, Eastern (UTC-4) +8, Pacific (UTC-7) +11.
+const STADIUM_OMAN_OFFSET={1:10,2:10,3:10,4:9,5:9,6:9,7:8,8:8,9:8,10:8,11:8,12:8,13:11,14:11,15:11,16:11};
+function apiOmanTime(localDate, stadiumId){
+  const m=/^(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)/.exec(localDate||""); if(!m) return "";
+  const off=STADIUM_OMAN_OFFSET[+stadiumId]; if(off==null) return "";
+  const d=new Date(Date.UTC(+m[3],+m[1]-1,+m[2],+m[4]+off,+m[5]));  // treat local as UTC, shift to Oman
+  return d.toLocaleString("en-GB",{timeZone:"UTC",weekday:"short",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",hour12:true});
+}
+function apiDateMs(localDate){
+  const m=/^(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)/.exec(localDate||""); if(!m) return Infinity;
+  return Date.UTC(+m[3],+m[1]-1,+m[2],+m[4],+m[5]);
+}
+// One team in the bracket: flag + our-spelling name, or a grey "TBC" when not yet known.
+function bracketTeam(name){
+  if(!name) return `<span class="bt tbc">TBC</span>`;
+  const k=normTeam(name);
+  return `<span class="bt"><span class="bf">${TEAM_FLAG[k]||"⚽"}</span>${escHtml(TEAM_DISPLAY[k]||name)}</span>`;
 }
 // Signature of live-relevant state, so polling only re-renders when something changed.
 function liveSig(){
@@ -1231,6 +1272,26 @@ function renderGroups(){
   }).join("");
 }
 
+/* ---------------- knockout bracket (Groups tab) ---------------- */
+function renderBracket(){
+  const box=$("#bracket"); if(!box) return;
+  if(!bracket.length){ box.innerHTML=""; return; }
+  const rounds=[["r32","Round of 32"],["r16","Round of 16"],["qf","Quarter-finals"],
+                ["sf","Semi-finals"],["third","Third place"],["final","Final"]];
+  let html=`<div class="br-title">Knockouts — road to the final</div>`;
+  rounds.forEach(([t,label])=>{
+    const gs=bracket.filter(g=>g.type===t).sort((a,b)=>apiDateMs(a.date)-apiDateMs(b.date));
+    if(!gs.length) return;
+    html+=`<div class="br-round"><div class="br-head">${label}</div>`+gs.map(g=>{
+      const mid = g.finished
+        ? `<span class="br-score">${g.hs}–${g.as}</span>`
+        : `<span class="br-time">${apiOmanTime(g.date,g.stadium)||"TBC"}</span>`;
+      return `<div class="br-match">${bracketTeam(g.home)}<span class="br-mid">${mid}</span>${bracketTeam(g.away)}</div>`;
+    }).join("")+`</div>`;
+  });
+  box.innerHTML=html;
+}
+
 /* ---------------- admin ---------------- */
 function renderAdmin(){
   const wrap=$("#adminMatches");
@@ -1299,7 +1360,7 @@ function show(view){
   $("#historyView").style.display = view==="history"?"block":"none";
   $("#saveBar").style.display = view==="play"?"block":"none";
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===view));
-  if(view==="groups") renderGroups();
+  if(view==="groups"){ renderGroups(); renderBracket(); }
   if(view==="board") renderBoard();
   if(view==="history") renderHistory();
 }
@@ -1320,7 +1381,7 @@ function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on
 // visit instead of waiting on the network. Fresh data overwrites it ~1s later.
 const CACHE_KEY = "wc_cache_v1";
 function saveCache(){
-  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({results, live, groups, allPreds, teamById})); }catch(e){}
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({results, live, groups, allPreds, teamById, bracket})); }catch(e){}
 }
 function hydrateFromCache(){
   try{
@@ -1331,6 +1392,7 @@ function hydrateFromCache(){
     if(c.groups)   groups   = c.groups;
     if(c.allPreds) allPreds = c.allPreds;
     if(c.teamById) teamById = c.teamById;
+    if(c.bracket)  bracket  = c.bracket;
     return true;
   }catch(e){ return false; }
 }
@@ -1338,7 +1400,7 @@ function hydrateFromCache(){
 /* ---------------- live score polling ---------------- */
 let lastLiveSig = "";
 function renderAll(){
-  renderMatches(); renderParticipants(); renderHistory(); renderBoard(); renderGroups(); populateNames();
+  renderMatches(); renderParticipants(); renderHistory(); renderBoard(); renderGroups(); renderBracket(); populateNames();
 }
 async function pollLive(){
   await loadData();   // refresh predictions + results + live scores + standings
