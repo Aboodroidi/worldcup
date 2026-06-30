@@ -366,6 +366,7 @@
   .team.draw.pick .nm{color:var(--green)}
   .vs{font-family:'DM Mono',monospace;color:var(--muted);font-size:12px;display:flex;flex-direction:column;align-items:center;gap:5px}
   .vs .sc{font-size:18px;font-weight:500;color:var(--ink);letter-spacing:.02em}
+  .pen-sc{font-size:10px;color:var(--muted);letter-spacing:.04em;margin-top:-2px}
   .mstatus{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.08em;
     display:inline-flex;align-items:center;gap:5px;padding:2px 7px;border-radius:999px;white-space:nowrap}
   .mstatus.ft{color:var(--muted);background:rgba(255,255,255,.05);border:1px solid var(--line)}
@@ -1187,10 +1188,10 @@ function renderHistory(){
     return `<div class="card">
       <div class="teams">
         <div class="team ${realWinner===m.home?"pick":""}"><span class="flag">${m.homeFlag||"\u26bd"}</span><span class="nm">${m.home}</span></div>
-        <div class="vs"><span class="sc">${R.hs}\u2013${R.as}</span>${matchStatus(m)}</div>
+        <div class="vs"><span class="sc">${R.hs}\u2013${R.as}</span>${matchStatus(m)}${R.pens?(()=>{const lv=live[m.id];return(lv&&lv.penHome!=null&&lv.penAway!=null)?`<span class="pen-sc">Penalties: ${lv.penHome}\u2013${lv.penAway}</span>`:`<span class="pen-sc">Penalties</span>`})():""}</div>
         <div class="team ${realWinner===m.away?"pick":""}"><span class="flag">${m.awayFlag||"\u26bd"}</span><span class="nm">${m.away}</span></div>
       </div>
-      <div class="result-tag">Final \u00b7 ${realWinner==="Draw"?"Draw":realWinner+" win"}${R.pens?(()=>{const lv=live[m.id];return(lv&&lv.penHome!=null&&lv.penAway!=null)?` \u00b7 ${lv.penHome}\u2013${lv.penAway} on pens`:" (pens)"})():""}</div>
+      <div class="result-tag">Final \u00b7 ${realWinner==="Draw"?"Draw":realWinner+" win"}${R.pens?" (pens)":""}</div>
       ${timeline}
       <div class="reveal on"><h4>Everyone\u2019s picks</h4><div>${preds}</div></div>
     </div>`;
