@@ -462,6 +462,7 @@
   .br-title{font-family:'Archivo',sans-serif;font-weight:900;font-size:18px;letter-spacing:.01em;margin:18px 2px 12px}
   .br-round{margin-bottom:16px}
   .br-head{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--green);margin:0 2px 8px}
+  .bt.btwon{color:var(--green);font-weight:700}
   .br-match{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.02);border:1px solid var(--line);
     border-radius:10px;padding:9px 12px;margin-bottom:6px}
   .br-match .bt{flex:1;display:flex;align-items:center;gap:7px;font-family:'Archivo',sans-serif;font-weight:600;font-size:14px;min-width:0}
@@ -1006,7 +1007,9 @@ async function loadLiveScores(){
     if(KO.includes(g.type)){
       brk.push({type:g.type, home:g.home_team_name_en||"", away:g.away_team_name_en||"",
                 date:g.local_date, stadium:g.stadium_id, hs:g.home_score, as:g.away_score,
-                finished:String(g.finished).toUpperCase()==="TRUE"});
+                finished:String(g.finished).toUpperCase()==="TRUE",
+                penHome:g.home_penalty_score!=null?parseInt(g.home_penalty_score,10):null,
+                penAway:g.away_penalty_score!=null?parseInt(g.away_penalty_score,10):null});
     }
     if(!g.home_team_name_en || !g.away_team_name_en) return;
     idx[normTeam(g.home_team_name_en)+"|"+normTeam(g.away_team_name_en)] = g;
@@ -1086,10 +1089,10 @@ function apiDateMs(localDate){
   return Date.UTC(+m[3],+m[1]-1,+m[2],+m[4],+m[5]);
 }
 // One team in the bracket: flag + our-spelling name, or a grey "TBC" when not yet known.
-function bracketTeam(name){
+function bracketTeam(name, won){
   if(!name) return `<span class="bt tbc">TBC</span>`;
   const k=normTeam(name);
-  return `<span class="bt"><span class="bf">${TEAM_FLAG[k]||"⚽"}</span>${escHtml(TEAM_DISPLAY[k]||name)}</span>`;
+  return `<span class="bt${won?" btwon":""}"><span class="bf">${TEAM_FLAG[k]||"⚽"}</span>${escHtml(TEAM_DISPLAY[k]||name)}</span>`;
 }
 // Signature of live-relevant state, so polling only re-renders when something changed.
 function liveSig(){
@@ -1294,10 +1297,22 @@ function renderBracket(){
     const gs=bracket.filter(g=>g.type===t).sort((a,b)=>apiDateMs(a.date)-apiDateMs(b.date));
     if(!gs.length) return;
     html+=`<div class="br-round"><div class="br-head">${label}</div>`+gs.map(g=>{
+      let homeWon=false, awayWon=false;
+      if(g.finished){
+        const hs=parseInt(g.hs,10), as=parseInt(g.as,10);
+        if(!isNaN(hs)&&!isNaN(as)){
+          if(hs>as) homeWon=true;
+          else if(as>hs) awayWon=true;
+          else if(g.penHome!=null&&g.penAway!=null){
+            if(g.penHome>g.penAway) homeWon=true;
+            else if(g.penAway>g.penHome) awayWon=true;
+          }
+        }
+      }
       const mid = g.finished
         ? `<span class="br-score">${g.hs}–${g.as}</span>`
         : `<span class="br-time">${apiOmanTime(g.date,g.stadium)||"TBC"}</span>`;
-      return `<div class="br-match">${bracketTeam(g.home)}<span class="br-mid">${mid}</span>${bracketTeam(g.away)}</div>`;
+      return `<div class="br-match">${bracketTeam(g.home,homeWon)}<span class="br-mid">${mid}</span>${bracketTeam(g.away,awayWon)}</div>`;
     }).join("")+`</div>`;
   });
   box.innerHTML=html;
