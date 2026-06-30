@@ -1019,9 +1019,12 @@ async function loadLiveScores(){
     if(Number.isNaN(hs) || Number.isNaN(as)) return;
     const finished = String(g.finished).toUpperCase()==="TRUE";
     const started  = finished || !!(g.time_elapsed && !/not.?started/i.test(g.time_elapsed));
+    const penHome = g.home_penalty_score!=null ? parseInt(g.home_penalty_score,10) : null;
+    const penAway = g.away_penalty_score!=null ? parseInt(g.away_penalty_score,10) : null;
     next[m.id] = {hs, as, finished, started, elapsed:g.time_elapsed,
                   homeScorers:parseScorers(g.home_scorers),
-                  awayScorers:parseScorers(g.away_scorers)};
+                  awayScorers:parseScorers(g.away_scorers),
+                  penHome, penAway};
   });
   live = next;
 }
@@ -1035,10 +1038,18 @@ function applyLiveResults(){
     const ko = m && STAGE[m.stage] && STAGE[m.stage].type==="ko";
     const r=results[id];
     if(r && (r.hs>=100 || r.as>=100)) return;   // admin-entered penalties result is authoritative
-    // A knockout that finishes level went to penalties; the API can't say who won,
-    // so leave it for the admin to enter (don't auto-store an ambiguous draw).
-    if(s.finished && !(ko && s.hs===s.as)) results[id]={hs:s.hs, as:s.as};   // FT
-    else delete results[id];                                                  // not completed
+    if(s.finished && ko && s.hs===s.as) {
+      // Level KO finish = penalties. Use API penalty scores if available.
+      if(s.penHome!=null && s.penAway!=null && !Number.isNaN(s.penHome) && !Number.isNaN(s.penAway) && s.penHome!==s.penAway) {
+        results[id] = s.penHome>s.penAway ? {hs:s.hs+100, as:s.as} : {hs:s.hs, as:s.as+100};
+      } else {
+        delete results[id];   // pens winner not yet known — admin must enter
+      }
+    } else if(s.finished) {
+      results[id]={hs:s.hs, as:s.as};   // FT, clear winner in regulation
+    } else {
+      delete results[id];                // not completed yet
+    }
   });
 }
 async function loadGroups(){
