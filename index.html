@@ -1190,7 +1190,7 @@ function renderHistory(){
         <div class="vs"><span class="sc">${R.hs}\u2013${R.as}</span>${matchStatus(m)}</div>
         <div class="team ${realWinner===m.away?"pick":""}"><span class="flag">${m.awayFlag||"\u26bd"}</span><span class="nm">${m.away}</span></div>
       </div>
-      <div class="result-tag">Final \u00b7 ${realWinner==="Draw"?"Draw":realWinner+" win"}${R.pens?" (pens)":""}</div>
+      <div class="result-tag">Final \u00b7 ${realWinner==="Draw"?"Draw":realWinner+" win"}${R.pens?(()=>{const lv=live[m.id];return(lv&&lv.penHome!=null&&lv.penAway!=null)?` \u00b7 ${lv.penHome}\u2013${lv.penAway} on pens`:" (pens)"})():""}</div>
       ${timeline}
       <div class="reveal on"><h4>Everyone\u2019s picks</h4><div>${preds}</div></div>
     </div>`;
