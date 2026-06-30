@@ -1188,7 +1188,7 @@ function renderHistory(){
     return `<div class="card">
       <div class="teams">
         <div class="team ${realWinner===m.home?"pick":""}"><span class="flag">${m.homeFlag||"\u26bd"}</span><span class="nm">${m.home}</span></div>
-        <div class="vs"><span class="sc">${R.hs}\u2013${R.as}</span>${matchStatus(m)}${R.pens?(()=>{const lv=live[m.id];return(lv&&lv.penHome!=null&&lv.penAway!=null)?`<span class="pen-sc">Penalties: ${lv.penHome}\u2013${lv.penAway}</span>`:`<span class="pen-sc">Penalties</span>`})():""}</div>
+        <div class="vs"><span class="sc">${R.hs}\u2013${R.as}</span>${matchStatus(m)}${R.pens?(()=>{const lv=live[m.id];return(lv&&lv.penHome!=null&&lv.penAway!=null)?`<span class="pen-sc">${lv.penHome}\u2013${lv.penAway} Penalties</span>`:`<span class="pen-sc">Penalties</span>`})():""}</div>
         <div class="team ${realWinner===m.away?"pick":""}"><span class="flag">${m.awayFlag||"\u26bd"}</span><span class="nm">${m.away}</span></div>
       </div>
       <div class="result-tag">Final \u00b7 ${realWinner==="Draw"?"Draw":realWinner+" win"}${R.pens?" (pens)":""}</div>
