@@ -925,23 +925,27 @@ async function savePicks(){
   const rows=[];
   for(const m of MATCHES){
     if(isLocked(m)) continue;            // can't submit locked matches
-    const p=picks[m.id]; if(!p||!p.winner) continue;
+    const p=picks[m.id];
     const cfg=STAGE[m.stage];
-    const row={ username:name, match_id:m.id, winner:p.winner,
-                home_score:null, away_score:null };
     if(cfg.type==="ko"){
+      // Knockout games require a winner + score or pens — no skipping allowed
+      if(!p||!p.winner){ toast(`Pick a winner for ${m.home} v ${m.away}`); return; }
+      const row={ username:name, match_id:m.id, winner:p.winner, home_score:null, away_score:null };
       if(p.pens){
-        row.home_score=-1; row.away_score=-1;        // penalties bet -> no score (sentinel)
+        row.home_score=-1; row.away_score=-1;
       } else if(p.hs!==""&&p.hs!=null&&p.as!==""&&p.as!=null){
         const H=+p.hs, A=+p.as;
         if(H===A){ toast(`${m.home} v ${m.away}: a knockout can't be a draw — pick penalties or a decisive score`); return; }
         if((H>A?m.home:m.away)!==p.winner){ toast(`${m.home} v ${m.away}: the score must match your winner (${p.winner})`); return; }
-        row.home_score=H; row.away_score=A;          // exact-score bet (matches winner)
-      } else {                                       // knockout: a score or pens is required
-        toast(`Add a score, or pick penalties, for ${m.home} v ${m.away}`); return;
+        row.home_score=H; row.away_score=A;
+      } else {
+        toast(`Add a score or pick penalties for ${m.home} v ${m.away}`); return;
       }
+      rows.push(row);
+    } else {
+      if(!p||!p.winner) continue;        // group stage: optional to pick every game
+      rows.push({ username:name, match_id:m.id, winner:p.winner, home_score:null, away_score:null });
     }
-    rows.push(row);
   }
   if(!rows.length){ toast("Make at least one pick on an open match"); return; }
 
