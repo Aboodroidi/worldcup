@@ -1327,7 +1327,7 @@ function renderGroups(){
 function renderBracket(){
   const box=$("#bracket"); if(!box) return;
   if(!bracket.length){ box.innerHTML = dataReady ? `<div class="empty">Matches unavailable right now.</div>` : LOADING("Loading matches…"); return; }
-  const rounds=[["r32","Round of 32"],["r16","Round of 16"],["qf","Quarter-finals"],
+  const rounds=[["r16","Round of 16"],["qf","Quarter-finals"],
                 ["sf","Semi-finals"],["third","Third place"],["final","Final"]];
   let html=`<div class="br-title">Knockouts — road to the final</div>`;
   rounds.forEach(([t,label])=>{
