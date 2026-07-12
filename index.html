@@ -576,6 +576,7 @@
   .fd.h{background:var(--green)}
   .fd.m{background:var(--magenta);color:#fff}
   .form .fire{position:absolute;top:-7px;right:-7px;font-size:12px;line-height:1;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+  .form .fire .mult{position:absolute;top:-5px;right:-6px;font-size:8px;font-weight:900;font-family:'DM Mono',monospace;color:#fff;background:var(--magenta);border-radius:4px;padding:0 2px;line-height:13px;pointer-events:none}
   .lb-row{cursor:pointer}
   .lb-row:hover{background:rgba(31,214,95,.06)}
   /* user history modal */
@@ -1289,7 +1290,9 @@ function formDots(username){
   const last=userResults(username).slice(-5);
   if(!last.length) return '';
   return '<span class="form">'+last.map(r=>{
-    const fire = (r.tier==="exact"||r.tier==="pens") ? '<span class="fire">\ud83d\udd25</span>' : "";  // nailed winner + score/pens
+    const mult = STAGE[r.m.stage]?.mult||1;
+    const multBadge = mult>1 ? `<span class="mult">\u00d7${mult}</span>` : "";
+    const fire = (r.tier==="exact"||r.tier==="pens") ? `<span class="fire">\ud83d\udd25${multBadge}</span>` : "";
     return `<span class="fd ${r.hit?'h':'m'}">${r.hit?'\u2713':'\u2717'}${fire}</span>`;
   }).join('')+'</span>';
 }
